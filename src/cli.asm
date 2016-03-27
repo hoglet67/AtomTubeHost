@@ -163,6 +163,8 @@ ddisks2:
    inx                          ; next drive
    cpx   #4
    bne   ddisks1
+
+return: 
    rts
         
 ;-----------------------------------------------------------------
@@ -199,8 +201,17 @@ loop_m:
    jsr   write_data_reg
 
    lda   #CMD_FILE_OPEN_IMG     ; Command = SDDOS mount
-   jmp   slow_cmd
+   jsr   slow_cmd
+   cmp   #$40
+   bcs   bad_image
+   rts
 
+bad_image:
+   jsr   STROUT                 ; print error
+   .byte "IMAGE?"
+   nop
+   brk
+        
 ;-----------------------------------------------------------------
 ; sd_unmount
 ;
