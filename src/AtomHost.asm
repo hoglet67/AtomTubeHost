@@ -150,6 +150,7 @@ TubeStartup:
 .endif
         LDA #TubeEna            ; Enable tube transfers in AtoMMC
         STA TubeFlag
+        JSR sd_init             ; Mount any existing image files
         LDA GodilVersion        ; Test GODIL version is 1x
         AND #$F0
         CMP #$10
@@ -800,7 +801,7 @@ clicopy:
         CMP #$0D
         BNE clicopy
 
-        JSR OSCLI               ; Execute it
+        JSR star_com
 
         ;; If the command returns here, the CoPro will get $7F as an acknowledgement
         ;; The CoPro also gets sent a $7F byte if there is no language available on
@@ -1339,6 +1340,8 @@ DebugHexOut:
         PLA
         PLP
         RTS
+
+.include "cli.asm"
 
 .include "util.asm"
 .include "osword7f.asm"
