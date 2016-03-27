@@ -1,4 +1,3 @@
-; /*
 ; atmmmc2def.h Symbolic defines for AtoMMC2
 
 ; 2011-05-25, Phill Harvey-Smith.
@@ -8,6 +7,11 @@
 TOP         =$0d
 PAGE        =$12
 ARITHWK     =$23
+
+; if ATOM_CRC_POLYNOMIAL is defined, *CRC will use it
+; if not, it will use the original code which is faster, but ~30 bytes longer
+ATOM_CRC_POLYNOMIAL = $2d        
+
 
 ; these need to be in ZP
 ;
@@ -30,6 +34,9 @@ CRC         =$c9         ; 3 bytes in ZP - should be ok as this addr only used f
 RDCCNT      =$c9         ; B - bytes in pool - ie ready to be read from file
 RDCLEN      =$ca         ; W - length of file supplying characters
 
+HANDLER     =$d1         ; used by iterator.asm
+TMPY        =$d5         ; used by iterator.asm
+        
 tmp_ptr3    =$D5
 tmp_ptr5    =$D6
 tmp_ptr6    =$D7
@@ -48,13 +55,14 @@ SAVVEC     =$20e
 ;
 FKIDX      =$3ca         ; B - fake key index
 RWLEN      =$3cb         ; W - count of bytes to write
-FILTER     =$3cd         ; B - dir walk filter 
+FILTER     =$3cd         ; B - dir walk filter
 
 
 ; FN       ADDR
 ;
 OSWRCH     =$fff4
 OSRDCH     =$ffe3
+OSECHO     =$ffe6 
 OSCRLF     =$ffed
 COSSYN     =$fa7d
 COSPOST    =$fa76
@@ -65,25 +73,28 @@ RDOPTAD    =$f893
 BADNAME    =$f86c
 WSXFER2    =$f85C
 COPYNAME   =$f818
+HEXOUT4    =$f7ee
+HEXOUT2    =$f7f1
 HEXOUT     =$f802
 HEXOUTS    =$f7fa
+SPCOUT     =$f7fd
 STROUT     =$f7d1
-	
+
 ; I/O register base
 ;
 
 .ifdef ALTADDR
-AREG_BASE			= $b408
+AREG_BASE         = $b408
 .else
-AREG_BASE			= $b400	
+AREG_BASE         = $b400
 .endif
 
-ACMD_REG			= AREG_BASE+CMD_REG
-ALATCH_REG                      = AREG_BASE+LATCH_REG             
-AREAD_DATA_REG                  = AREG_BASE+READ_DATA_REG             
-AWRITE_DATA_REG                 = AREG_BASE+WRITE_DATA_REG             
-ASTATUS_REG			= AREG_BASE+STATUS_REG	
-	
+ACMD_REG       = AREG_BASE+CMD_REG
+ALATCH_REG                      = AREG_BASE+LATCH_REG
+AREAD_DATA_REG                  = AREG_BASE+READ_DATA_REG
+AWRITE_DATA_REG                 = AREG_BASE+WRITE_DATA_REG
+ASTATUS_REG       = AREG_BASE+STATUS_REG
+
 ; // Register definitions, these are offsets from 0xB400 on the Atom side.
 
 CMD_REG                         =   $00
@@ -99,6 +110,9 @@ CMD_DIR_CWD                     =   $02
 CMD_DIR_GETCWD                  =   $03
 CMD_DIR_MKDIR                   =   $04
 CMD_DIR_RMDIR                   =   $05
+
+; // RENAME commands
+CMD_RENAME                      =   $08
 
 ; // CMD_REG_COMMANDS
 CMD_FILE_CLOSE                  =   $10
@@ -164,17 +178,3 @@ ERROR_ALREADY_MOUNT             =   $0A
 MMC_MCU_BUSY                    =   $01
 MMC_MCU_READ                    =   $02
 MMC_MCU_WROTE                   =   $04
-
-
-
-
-
-
-
-
-
-
-
-
-
-

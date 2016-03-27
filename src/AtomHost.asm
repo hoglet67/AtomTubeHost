@@ -10,9 +10,7 @@
         LangStart = $4000       ; start of the language in host memory
         LangEnd   = $8000       ; end of the language in host memory
 
-.include "macros.asm"
 .include "atmmc2def.asm"
-
 
 ;;; MOS entry addresses
 ;;; -------------------
@@ -24,7 +22,6 @@
         OSRDAR   = $FFDA
         OSSAVE   = $FFDD
         OSLOAD   = $FFE0
-        OSECHO   = $FFE6
         OSASCI   = $FFE9
         OSNEWL   = $FFED
         OSWRCR   = $FFF2
@@ -32,6 +29,7 @@
 
         ;; These are already defined in atmmc2def.asm
         ;; OSRDCH   = $FFE3
+        ;; OSECHO   = $FFE6
         ;; OSWRCH   = $FFF4
         ;; HEXOUT   = $F802
         ;; STROUT   = $F7D1

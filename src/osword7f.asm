@@ -195,15 +195,16 @@ word7F_track_done:
 ;;; Read Sector Entry Point
 sd_sector_r:
         JSR send_drive_and_sector ; Set SDDOS drive + sector
-        SLOWCMDI CMD_READ_IMG_SEC ; Command = read SDDOS sector
-        JSR send_cmd_init_read    ; Reset datapointer
+        LDA #CMD_READ_IMG_SEC ; Command = read SDDOS sector
+        JSR slow_cmd
+        JSR prepare_read_data    ; Reset datapointer
         LDY #0
         LDA IOFlag
         BEQ rd2
 
 ;;; Copy block of 256 from AtoMMC to parasite memory via tube
 rd1:
-        readportFAST AREAD_DATA_REG
+        JSR read_data_reg
         STA TubeR3
 .if (debug_sddos = 1)
         STA debug_data, Y
@@ -214,7 +215,7 @@ rd1:
 
 ;;; Copy block of 256 from AtoMMC to host memory
 rd2:
-        readportFAST AREAD_DATA_REG
+        JSR read_data_reg
         STA (IOAddr), Y
 .if (debug_sddos = 1)
         STA debug_data, Y
@@ -232,7 +233,7 @@ sd_sector_r_end:
 ;;; Write Sector Entry Point
 sd_sector_w:
         JSR send_drive_and_sector ; Set SDDOS drive + sector
-        JSR send_cmd_init_write   ; Reset globalbufferpointer
+        JSR prepare_write_data   ; Reset globalbufferpointer
         LDY #0
         LDA IOFlag
         BEQ wr2
@@ -240,7 +241,7 @@ sd_sector_w:
 ;;; Copy block of 256 from AtoMMC to parasite memory via tube
 wr1:
         LDA TubeR3
-        writeportFAST AWRITE_DATA_REG
+        JSR write_data_reg
 .if (debug_sddos = 1)
         STA debug_data, Y
 .endif
@@ -251,7 +252,7 @@ wr1:
 ;;; Copy block of 256 from AtoMMC to host memory
 wr2:
         LDA (IOAddr), Y
-        writeportFAST AWRITE_DATA_REG
+        JSR write_data_reg
 .if (debug_sddos = 1)
         STA debug_data, Y
 .endif
@@ -260,41 +261,34 @@ wr2:
         INC IOAddr + 1
 
 sd_sector_w_end:
-        SLOWCMDI CMD_WRITE_IMG_SEC   ; Command = write SDDOS sector
+        LDA #CMD_WRITE_IMG_SEC   ; Command = write SDDOS sector
+        JSR slow_cmd
 .if (debug_sddos = 1)
         JSR dump_debug_data
 .endif
         RTS
 
 send_drive_and_sector:
-        JSR send_cmd_init_write   ; Reset globalbufferpointer
+        JSR prepare_write_data    ; Reset globalbufferpointer
         LDA drive                 ; Send drive 0 or 1
-        writeportFAST AWRITE_DATA_REG
-        JSR interwritedelay
+        JSR write_data_reg
+        JSR inter_write_delay
         LDA sector                ; Send sectornr LB
-        writeportFAST AWRITE_DATA_REG
-        JSR interwritedelay
+        JSR write_data_reg
+        JSR inter_write_delay
         LDA sector+1              ; Send sectornr
-        writeportFAST AWRITE_DATA_REG
-        JSR interwritedelay
+        JSR write_data_reg
+        JSR inter_write_delay
         LDA sector+2              ; Send sectornr
-        writeportFAST AWRITE_DATA_REG
-        JSR interwritedelay
+        JSR write_data_reg
+        JSR inter_write_delay
         LDA sector+3              ; Send sectornr HB
-        writeportFAST AWRITE_DATA_REG
-        JSR interwritedelay
-        FASTCMDI CMD_LOAD_PARAM   ; Command = load SDDOS parameters
-        JMP  interwritedelay
+        JSR write_data_reg
+        JSR inter_write_delay
+        LDA #CMD_LOAD_PARAM       ; Command = load SDDOS parameters
+        JSR fast_cmd
+        JMP inter_write_delay
 
-send_cmd_init_read:
-        LDA #CMD_INIT_READ
-        writeportFAST ACMD_REG
-        JMP  interwritedelay
-
-send_cmd_init_write:
-        LDA #CMD_INIT_WRITE
-        writeportFAST ACMD_REG
-        JMP interwritedelay
 
 .if (debug_sddos = 1)
 dump_debug_data:
