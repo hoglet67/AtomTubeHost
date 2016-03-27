@@ -5,9 +5,6 @@
         load     = $3000        ; Load address of the host code
 
         atmhdr   = 1            ; Whether to include an ARM header (form AtoMMC2)
-
-        atommc   = 0            ; Whether to include a local copy of AtomMMC2 load/save
-
         buffered_kbd = 1        ; Whether to include a buffered keyboard routine
 
         LangStart = $4000       ; start of the language in host memory
@@ -190,17 +187,6 @@ Startup2:
         STA BRKV+0              ; Claim BRKV
         LDA #>TubeBRK
         STA BRKV+1
-
-.if (atommc = 1)
-        LDA #<osloadcode        ; Claim OSLOAD
-        STA LOADV
-        LDA #>osloadcode
-        STA LOADV+1
-        LDA #<ossavecode        ; Claim OSSAVE
-        STA SAVEV
-        LDA #>ossavecode
-        STA SAVEV+1
-.endif
         LDA #$8E
         STA TubeS1              ; Enable NMI on R1, IRQ on R4, IRQ on R1
         JSR TubeFree            ; Set Tube 'free' and no owner
@@ -1355,13 +1341,6 @@ DebugHexOut:
         PLA
         PLP
         RTS
-
-.if (atommc = 1)
-.include "tube.asm"
-.include "file.asm"
-.include "load.asm"
-.include "save.asm"
-.endif
 
 .include "util.asm"
 .include "osword7f.asm"
