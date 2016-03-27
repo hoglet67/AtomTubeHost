@@ -138,3 +138,78 @@ WaitWhileBusy:
    bne   WaitWhileBusy       ; yes keep waiting
    rts
 .endif
+
+;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
+;
+; Read filename from $100 to $140
+;
+; Input  $9A = pointer just after command
+;
+; Output $140 contains filename, terminated by $0D
+;
+read_filename:
+   jsr   read_optional_filename
+
+   cpx   #0                     ; chec the filename length > 0
+   bne   filename_ok
+
+syn_error:
+   jmp   COSSYN                 ; generate a SYN? ERROR 135
+
+
+;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
+;
+; Read Optional filename from $100 to $140
+;
+; Input  $9A = pointer just after command
+;
+; Output $140 contains filename, terminated by $0D
+;
+read_optional_filename:
+   ldx   #0
+   ldy   $9a
+
+@filename1:
+   jsr   SKIPSPC
+   cmp   #$22
+   beq   @filename5
+
+@filename2:
+   cmp   #$0d
+   beq   @filename3
+
+   sta   NAME,x
+   inx
+   iny
+   lda   $100,y
+   cmp   #$20
+   bne   @filename2
+
+@filename3:
+   lda   #$0d
+   sta   NAME,x
+   sty   $9a
+   rts
+
+@filename5:
+   iny
+   lda   $100,y
+   cmp   #$0d
+   beq   syn_error
+
+   sta   NAME,x
+   inx
+   cmp   #$22
+   bne   @filename5
+
+   dex
+   iny
+   lda   $100,y
+   cmp   #$22
+   bne   @filename3
+
+   inx
+   bcs   @filename5
+
+filename_ok:
+   rts
