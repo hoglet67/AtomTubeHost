@@ -92,6 +92,9 @@ com_tab:
    .byte "DDISKS"
    FNADDR star_ddisks
 
+   .byte "ATOM"
+   FNADDR star_atom
+
    FNADDR star_arbitrary
 
 star_arbitrary:
@@ -167,6 +170,33 @@ ddisks2:
 return: 
    rts
         
+;-----------------------------------------------------------------
+; *ATOM
+;
+;   - disable via interrupts
+;   - release tube client
+;   - close open files
+;   - restore brkvec
+;   - exit tube client, return to Atom basic
+;-----------------------------------------------------------------
+
+star_atom:
+
+   lda   #$7F                     ; Disable all interrupts
+   sta   ViaIER
+   jsr   TubeFree                 ; Release the tube
+   ldy   #0                       ; Close all open files
+   jsr   OSSHUT
+   lda   BrkSave+0                ; Restore BRKV
+   sta   BRKV+0
+   lda   BrkSave+1
+   sta   BRKV+1
+   pla                            ; we were called as subroutine
+   pla                            ; clear stack with 4 pulls
+   pla                              
+   pla                              
+   rts                            ; this will end the tube client
+
 ;-----------------------------------------------------------------
 ; sd_init
 ;-----------------------------------------------------------------

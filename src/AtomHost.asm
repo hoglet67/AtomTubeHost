@@ -26,6 +26,8 @@
         OSNEWL   = $FFED
         OSWRCR   = $FFF2
         OSCLI    = $FFF7
+        
+        RDBUFFER = $F876        ; read character from input buffer but ignores spaces
 
         ;; These are already defined in atmmc2def.asm
         ;; OSRDCH   = $FFE3
@@ -139,6 +141,20 @@ L0409:
 ;;; ----------------------------
 
 TubeStartup:
+        JSR RDBUFFER            ; read non-space character
+        CMP #$0D                ; test for end-of-line
+        BEQ NoParam             ; jump if end-of-line (no parameter)
+        JSR read_num            ; read the core number
+        CMP #16                 ; check highest core number
+        BMI SelectCore          ; continue on valid core number
+        JSR STROUT              ; print error
+        .byte "CORE?"
+        NOP
+        BRK
+
+SelectCore:
+        STA TubeS4              ; select the core
+NoParam:
         LDA #$00                ; non zero means transfer language
         STA LangFlag
         LDA #$00                ; B5 tracks escape key, B6 tracks escape state
@@ -172,6 +188,14 @@ UpdateGodilFlag:
         STA TubeS1
         LDA #$A0
         STA TubeS1              ; Reset client
+        
+        JSR $FE66               ; Wait a second/60
+ClearVduFifo:
+        LDA    TubeR1           ; Read data from VDU fifo buffer
+        BIT    TubeS1           ; Still data available?
+        BMI    ClearVduFifo     ; Yes, then read next byte
+        JSR    $FE66            ; Wait another second/60
+        
         LDA #$20
         STA TubeS1
 StartupLp1:
@@ -182,6 +206,10 @@ StartupLp1:
         JSR AtomWRCH
         JMP StartupLp1          ; Print character, loop for more
 Startup2:
+        LDA BRKV+0              ; save BRKV
+        STA BrkSave+0
+        LDA BRKV+1
+        STA BrkSave+1
         LDA #<TubeBRK
         STA BRKV+0              ; Claim BRKV
         LDA #>TubeBRK
@@ -1320,6 +1348,9 @@ ViaExit:
 
 ViaTime:
         .byte 0,0,0,0,0
+        
+BrkSave:
+		  .byte 0,0
 
 
 ;;; Debugging output, avoid trashing A
