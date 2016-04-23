@@ -141,6 +141,7 @@ L0409:
 ;;; ----------------------------
 
 TubeStartup:
+        LDY #0                  ; *RUN copies the params to $100
         JSR RDBUFFER            ; read non-space character
         CMP #$0D                ; test for end-of-line
         BEQ NoParam             ; jump if end-of-line (no parameter)
