@@ -151,6 +151,7 @@ word7F_skipclaim:
         LDA TubeCtrl            ; drive number (0=A; 1=B)
         AND #$01
         STA drive
+	TAY
 
         LDA TubeCtrl            ; drive 2 = second side
         AND #$02
@@ -159,7 +160,7 @@ word7F_skipclaim:
         ;; Add 10 sectors to access drive 2 tracks
         LDA sector
         CLC
-        ADC #10
+        ADC act_disk_int,y
         STA sector
 
 word7Fdrive0:
@@ -170,7 +171,7 @@ word7Fdrive0:
 word7F_tracks:
         CLC
         LDA sector
-        ADC #20
+        ADC act_disk_sect,y
         STA sector
         BCC word7F_track_dec
         INC sector + 1
@@ -187,8 +188,6 @@ word7F_track_done:
         AND #$1F
         TAX
         RTS
-
-
 
 ;;; Sector level disk access (from SDDOS)
 

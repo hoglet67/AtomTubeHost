@@ -178,3 +178,10 @@ ERROR_ALREADY_MOUNT             =   $0A
 MMC_MCU_BUSY                    =   $01
 MMC_MCU_READ                    =   $02
 MMC_MCU_WROTE                   =   $04
+
+;// TUBE variables
+
+TUBE_CTRL      =   $60          ; Tube control block address
+TUBE_FLAG      =  $3CF          ; Tube enabled flag, set by atom tube host
+TUBE_ENABLED   =   $5A          ; Tube enable magic value
+TUBE_CLIENT_ID =   $DD          ; Client ID for AtoMMC2 used in tube protocol
