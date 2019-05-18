@@ -55,7 +55,6 @@ read_data_reg:
    lda   AREAD_DATA_REG
    rts
 
-.ifndef AVR
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
 ; Short delay
@@ -63,6 +62,7 @@ read_data_reg:
 ; Enough to intersperse 2 writes to the FATPIC.
 ;
 inter_write_delay:
+.ifndef AVR
    pha
    lda   #16
    bne   write_delay
@@ -76,8 +76,8 @@ write_delay:
    bne   @loop
    pla
 data_read_delay:
-   rts
 .endif
+   rts
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
