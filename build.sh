@@ -11,7 +11,7 @@ do
 rm -f $version
 
 echo Assembling $version
-ca65 -l AtomHost_$version.lst -o AtomHost_$version.o AtomHost_$version.asm
+ca65 -DAVR -l AtomHost_$version.lst -o AtomHost_$version.o AtomHost_$version.asm
 
 echo Linking $version
 ld65 AtomHost_$version.o -o $version -C AtomHost.lkr 
