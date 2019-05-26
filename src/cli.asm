@@ -95,6 +95,18 @@ com_tab:
    .byte "ATOM"
    FNADDR star_atom
 
+   .byte "COPRO"
+   FNADDR star_copro
+
+   .byte "COSPEED"
+   FNADDR star_cospeed
+
+   .byte "COMEM"
+   FNADDR star_comem
+
+   .byte "CORESET"
+   FNADDR star_coreset
+
    FNADDR star_arbitrary
 
 star_arbitrary:
@@ -196,6 +208,44 @@ star_atom:
    pla                              
    pla                              
    rts                            ; this will end the tube client
+
+;-----------------------------------------------------------------
+; *COPRO <n>
+;-----------------------------------------------------------------
+star_copro:
+   jsr   read_num               ; read parameter
+   sta   TubeS4
+   rts
+
+;-----------------------------------------------------------------
+; *COSPEED <n>
+;-----------------------------------------------------------------
+star_cospeed:
+   jsr   read_num               ; read parameter
+   pha
+   lda   #0
+   sta   TubeS2
+   pla
+   sta   TubeS3
+   rts
+
+;-----------------------------------------------------------------
+; *COMEM <n>
+;-----------------------------------------------------------------
+star_comem:
+   jsr   read_num               ; read parameter
+   pha
+   lda   #1
+   sta   TubeS2
+   pla
+   sta   TubeS3
+   rts
+
+;-----------------------------------------------------------------
+; *CORESET
+;-----------------------------------------------------------------
+star_coreset:
+   jmp   TubeReset
 
 ;-----------------------------------------------------------------
 ; sd_init

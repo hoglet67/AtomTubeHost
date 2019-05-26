@@ -137,6 +137,9 @@ L0406:
 L0409:
         JMP TubeError
 
+InitialStack:
+        .byte 0
+
 ;;; Start up the Atom Tube system
 ;;; ----------------------------
 
@@ -183,6 +186,13 @@ UpdateGodilFlag:
         LDA #12
         JSR AtomWRCH            ; Clear screen, ready for startup banner
         JSR ViaInit             ; Initialize 50Hz interrupts
+
+        TSX
+        STX InitialStack
+TubeReset:
+        LDX InitialStack        ; Reset the stack, as *CORESET jumps directly here
+        TXS
+
         LDA #$C0
         STA TubeS1              ; Clear all Tube Regs
         LDA #$40
