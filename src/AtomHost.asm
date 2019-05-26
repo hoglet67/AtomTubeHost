@@ -527,7 +527,7 @@ TubeErrorLp:
 
 TubeIdleStartup:
         ;; Clear stack, enable IRQs
-        LDX #$FF
+        LDX InitialStack
         TXS
         CLI
         BNE TubeIdleLoop
