@@ -188,6 +188,7 @@ return:
 ;   - disable via interrupts
 ;   - release tube client
 ;   - close open files
+;   - disable tube transfers in AtoMMC
 ;   - restore brkvec
 ;   - exit tube client, return to Atom basic
 ;-----------------------------------------------------------------
@@ -199,6 +200,8 @@ star_atom:
    jsr   TubeFree                 ; Release the tube
    ldy   #0                       ; Close all open files
    jsr   OSSHUT
+   lda   #0
+   sta   TubeFlag                 ; Disable tube transfers in AtoMMC
    lda   BrkSave+0                ; Restore BRKV
    sta   BRKV+0
    lda   BrkSave+1
