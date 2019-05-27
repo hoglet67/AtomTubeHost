@@ -107,10 +107,64 @@ com_tab:
         .byte "RESET"
         FNADDR star_reset
 
+        .byte "HELP"
+        FNADDR star_help
+
         FNADDR star_arbitrary
 
 star_arbitrary:
         JMP OSCLI
+
+help_tab:
+        .byte "   <DRIVE> <FILENAME>", 0
+        .byte "  <DRIVE>", 0
+        .byte 0
+        .byte 0
+        .byte " <N>", 0
+        .byte " <N>", 0
+        .byte "   <N>", 0
+        .byte 0
+        .byte 0
+;-----------------------------------------------------------------
+; *HELP
+;-----------------------------------------------------------------
+
+star_help:
+        JSR STROUT
+        .byte 10, 13, "ATOM TUBE HOST", 10, 13
+        NOP
+
+        LDX #$00
+        LDY #$FF
+
+help0:  LDA com_tab, X
+        BMI help4
+        PHA
+        LDA #$20
+        JSR OSWRCH
+        JSR OSWRCH
+        PLA
+help1:
+        JSR OSWRCH
+        INX
+        LDA com_tab, X
+        BPL help1
+        INX
+        INX
+
+help2:
+        INY
+        LDA help_tab, Y
+        BEQ help3
+        JSR OSWRCH
+        BNE help2
+
+help3:
+        JSR OSNEWL
+        JMP help0
+
+help4:
+        RTS
 
 ;-----------------------------------------------------------------
 ; *DIN <drv>,<filename>
