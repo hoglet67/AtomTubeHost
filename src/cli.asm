@@ -255,7 +255,52 @@ star_coreset:
 ;-----------------------------------------------------------------
 sd_init:
         LDA #CMD_VALID_IMG_NAMES ; Command = SDDOS load drive config
-        JMP slow_cmd
+        JSR slow_cmd
+
+        LDA #CMD_GET_IMG_NAME   ; command read imagenames
+        JSR slow_cmd
+
+        JSR prepare_read_data   ; reset pointer
+
+        LDX #$FF                ; buffer index
+        LDY #$00                ; drive num
+sd_init1:                       ; copy the response from CMD_GET_IMAGE_NAME to $160
+        INX                     ; response is <name0><00><name1><00><name2><00><name3><00>
+        JSR read_data_reg
+        STA NAME2, X
+        BNE sd_init1
+        INY                     ; next drive
+        CPY #4
+        BNE sd_init1
+
+        LDX #$00                ; buffer index, pointing to filenames
+        LDY #$00                ; drive num
+sd_init2:
+        TYA                     ; save drive num
+        PHA
+        LDA NAME2, X            ; check if next drive filename is present
+        BEQ sd_init4            ; no, skip to next drive
+        LDY #$FF
+        DEX
+sd_init3:
+        INX
+        INY
+        LDA NAME2, X            ; copy filename from NAME2 buffer ($160)
+        STA NAME, Y             ; to NAME buffer buffer ($140)
+        BNE sd_init3
+        LDA #$0D                ; replace <00> terminator with <0d>
+        STA NAME, Y
+        PLA                     ; A = drive num
+        PHA
+        JSR sd_mount            ; re-mount the drive: A=<drv no> $140=<filename><0D>, X preserved, $140 corrupted
+sd_init4:
+        PLA                     ; restore drive num
+        TAY
+        INX                     ; skip terminator
+        INY                     ; next drive
+        CPY #4
+        BNE sd_init2
+        RTS
 
 ;-----------------------------------------------------------------
 ; sd_mount
@@ -273,15 +318,22 @@ sd_mount:
         PLA                     ; Restore drive num
         STA tmp_drive           ; Save drivenr
 
-        LDX #0                  ; Globalbuffer(0)=drive num
+        JSR write_data_reg      ; Globalbuffer(0)=drive num
+
+        TXA                     ; preserve X
+        PHA
+
+        LDX #0
 loop_m:
-        JSR write_data_reg
-        LDA NAME,x
-        INX
+        LDA NAME,X              ; Globalbuffer(x)=string
         CMP #$0d
+        BEQ loop_ex
+        JSR write_data_reg
+        INX
         BNE loop_m
 
-        LDA #0                  ; Globalbuffer(x)=stringterminator
+loop_ex:
+        LDA #0                  ; Globalbuffer(x)=terminator
         JSR write_data_reg
 
         LDA #CMD_FILE_OPEN_IMG  ; Command = SDDOS mount
@@ -298,6 +350,9 @@ loop_m:
         STA act_disk_sect,y
         LDA disk_int,x
         STA act_disk_int,y
+
+        PLA                     ; restore X
+        TAX
 
         RTS
 
@@ -428,27 +483,27 @@ table_disksize_hb:
         .byte $01,$06,$ff       ; hb disksize/256
 
 table_disksize_lb:
-             .byte $90,$40,$ff  ; lb disksize/256
+        .byte $90,$40,$ff       ; lb disksize/256
 
 ;---------------------------------------
 ; Disktype parameters  0,  1
 ;---------------------------------------
 
 disk_sect:
-             .byte 10, 20       ; Number of sectors per (image) track
+        .byte 10, 20            ; Number of sectors per (image) track
 
 disk_int:
-             .byte  0, 10       ; Number of sectors to skip to read interleaved data
+        .byte  0, 10            ; Number of sectors to skip to read interleaved data
 
 ;---------------------------------------
 ; Drive parameters     0,  1,  2,  3
 ;---------------------------------------
 
 act_disk_sect:
-             .byte  0,  0,  0,  0
+        .byte  0,  0,  0,  0
 
 act_disk_int:
-             .byte  0,  0,  0,  0
+        .byte  0,  0,  0,  0
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;

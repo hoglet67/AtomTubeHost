@@ -170,7 +170,6 @@ NoParam:
 .endif
         LDA #TubeEna            ; Enable tube transfers in AtoMMC
         STA TubeFlag
-        JSR sd_init             ; Mount any existing image files
         LDA GodilVersion        ; Test GODIL version is 1x
         AND #$F0
         CMP #$10
@@ -232,6 +231,8 @@ Startup2:
         LDA #$8E
         STA TubeS1              ; Enable NMI on R1, IRQ on R4, IRQ on R1
         JSR TubeFree            ; Set Tube 'free' and no owner
+
+        JSR sd_init             ; Mount any existing image files
 
         LDA LangFlag            ; Skip language transfer if flag 0
         BEQ Startup3
