@@ -602,6 +602,11 @@ RdLineLp1:
         BNE RdLineChar
         CPY #0
         BEQ RdLineLp1           ; Nothing to delete
+        LDA #8
+        JSR AtomWRCH
+        LDA #32
+        JSR AtomWRCH
+        LDA #8
         JSR AtomWRCH
         DEY
         JMP RdLineLp1           ; Delete one character
