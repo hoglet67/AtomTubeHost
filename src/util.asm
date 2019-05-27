@@ -1,3 +1,38 @@
+atommc3_version_expected:
+        .byte "ATOMMC2 V3", 0
+
+atommc3_version_actual = $EFD0
+
+atommc3_type:
+        .byte 0
+
+;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
+; atommc3_init - determine type of atommc and check ROM version
+
+atommc3_detect:
+        LDX #$FF
+
+atommc3_check_loop:
+        INX
+        LDA atommc3_version_expected, X
+        BEQ atommc3_check_done
+        CMP atommc3_version_actual, X
+        BEQ atommc3_check_loop
+
+        JSR STROUT
+        .byte "WARNING: ATOMMC3 ROM NOT PRESENT", 10, 13
+        NOP
+        JSR OSRDCH
+
+atommc3_check_done:
+        LDX #0
+        LDA $B404               ; 0 = AVR, not 0 = PIC
+        BEQ atommc3_avr
+        DEX
+atommc3_avr:
+        STX atommc3_type        ; AVR=$0000, = PIC=$FF
+        RTS
+
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ; "Init" commands that are used in several places
 ; TODO: Check these really don't need any delay / handshaking....
@@ -15,43 +50,40 @@ prepare_write_data:
 
 write_cmd_reg:
         STA ACMD_REG
-.ifdef AVR
-        JMP WaitUntilRead
-.else
-        JMP inter_write_delay
-.endif
+        BIT atommc3_type
+        BPL WaitUntilRead       ; AVR
+        BMI inter_write_delay   ; PIC
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ; Write latch + wait
 
 write_latch_reg:
         STA ALATCH_REG
-.ifdef AVR
-        JMP WaitUntilRead
-.else
-        JMP inter_write_delay
-.endif
+        BIT atommc3_type
+        BPL WaitUntilRead       ; AVR
+        BMI inter_write_delay   ; PIC
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ; Write data + wait
 
 write_data_reg:
         STA AWRITE_DATA_REG
-.ifdef AVR
-        JMP WaitUntilRead
-.else
-        JMP data_write_delay
-.endif
+        BIT atommc3_type
+        BPL WaitUntilRead       ; AVR
+        BMI inter_write_delay   ; PIC
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ; Wait + Read data
 
 read_data_reg:
-.ifdef AVR
+        BIT atommc3_type
+        BMI read_data_reg_pic
+read_data_reg_avr:
         JSR WaitUntilWritten
-.else
+        LDA AREAD_DATA_REG
+        RTS
+read_data_reg_pic:
         JSR data_read_delay
-.endif
         LDA AREAD_DATA_REG
         RTS
 
@@ -62,10 +94,12 @@ read_data_reg:
 ; Enough to intersperse 2 writes to the FATPIC.
 ;
 inter_write_delay:
-.ifndef AVR
+        BIT atommc3_type
+        BPL data_read_delay
         PHA
         LDA #16
         BNE write_delay
+
 data_write_delay:
         PHA
         LDA #4
@@ -76,7 +110,6 @@ write_delay:
         BNE @loop
         PLA
 data_read_delay:
-.endif
         RTS
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
@@ -86,14 +119,11 @@ data_read_delay:
 ; - On the AVR, this is the same as slow_cmd
 
 fast_cmd:
-.ifndef AVR
+        BIT atommc3_type
+        BPL slow_cmd
         JSR write_cmd_reg
         LDA ACMD_REG
         RTS
-.else
-   ; fall through to slow_cmd
-.endif
-
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
@@ -102,24 +132,22 @@ fast_cmd:
 
 slow_cmd:
         JSR write_cmd_reg
-
-.ifndef AVR
-slow_cmd_loop:
+        BIT atommc3_type
+        BPL slow_cmd_avr
+slow_cmd_pic:
         LDA #0
         SEC
-slow_cmd_delay_loop:
+slow_cmd_loop:
         SBC #1
-        BNE slow_cmd_delay_loop
-
+        BNE slow_cmd_loop
         LDA ACMD_REG
-        BMI slow_cmd_loop       ; loop until command done bit (bit 7) is cleared
-.else
+        BMI slow_cmd_pic       ; loop until command done bit (bit 7) is cleared
+        RTS
+slow_cmd_avr:
         JSR WaitWhileBusy       ; Keep waiting until not busy
         LDA ACMD_REG            ; get status for client
-.endif
         RTS
 
-.ifdef AVR
 WaitUntilRead:
         LDA ASTATUS_REG         ; Read status reg
         AND #MMC_MCU_READ       ; Been read yet ?
@@ -137,7 +165,6 @@ WaitWhileBusy:
         AND #MMC_MCU_BUSY       ; MCU still busy ?
         BNE WaitWhileBusy       ; yes keep waiting
         RTS
-.endif
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;

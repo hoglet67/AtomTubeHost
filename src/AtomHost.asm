@@ -186,6 +186,8 @@ UpdateGodilFlag:
         JSR AtomWRCH            ; Clear screen, ready for startup banner
         JSR ViaInit             ; Initialize 50Hz interrupts
 
+        JSR atommc3_detect
+
         TSX
         STX InitialStack
 TubeReset:
