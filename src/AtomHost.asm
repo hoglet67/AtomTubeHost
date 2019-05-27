@@ -196,22 +196,16 @@ TubeReset:
         STA TubeS1              ; Clear all Tube Regs
         LDA #$40
         STA TubeS1
+
         LDA #$A0
-        STA TubeS1              ; Reset client
-
-; This breaks with all releases of PiTubeDirect since Boa
-; due to a reset bug.
-; See https://github.com/hoglet67/PiTubeDirect/issues/63
-;
-;         JSR $FE66               ; Wait a second/60
-; ClearVduFifo:
-;         LDA    TubeR1           ; Read data from VDU fifo buffer
-;         BIT    TubeS1           ; Still data available?
-;         BMI    ClearVduFifo     ; Yes, then read next byte
-;         JSR    $FE66            ; Wait another second/60
-
+        STA TubeS1              ; Assert client reset
+ClearVduFifo:
+        LDA TubeR1              ; Read data from VDU fifo buffer
+        BIT TubeS1              ; Still data available?
+        BMI ClearVduFifo        ; Yes, then read next byte
         LDA #$20
-        STA TubeS1
+        STA TubeS1              ; Release client reset
+
 StartupLp1:
         BIT TubeS1
         BPL StartupLp1          ; Loop until VDU data present
