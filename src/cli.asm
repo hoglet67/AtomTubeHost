@@ -244,6 +244,7 @@ return:
 ;   - close open files
 ;   - disable tube transfers in AtoMMC
 ;   - restore brkvec
+;   - NEW
 ;   - exit tube client, return to Atom basic
 ;-----------------------------------------------------------------
 
@@ -260,6 +261,10 @@ star_atom:
         STA BRKV+0
         LDA BrkSave+1
         STA BRKV+1
+        LDA #$0D                ; NEW
+        STA $2900
+        LDA #$FF
+        STA $2901
         PLA                     ; we were called as subroutine
         PLA                     ; clear stack with 4 pulls
         PLA
