@@ -98,14 +98,14 @@ com_tab:
         .byte "COPRO"
         FNADDR star_copro
 
-        .byte "COSPEED"
-        FNADDR star_cospeed
+        .byte "SPEED"
+        FNADDR star_speed
 
-        .byte "COMEM"
-        FNADDR star_comem
+        .byte "MEM"
+        FNADDR star_mem
 
-        .byte "CORESET"
-        FNADDR star_coreset
+        .byte "RESET"
+        FNADDR star_reset
 
         FNADDR star_arbitrary
 
@@ -221,9 +221,9 @@ star_copro:
         RTS
 
 ;-----------------------------------------------------------------
-; *COSPEED <n>
+; *SPEED <n>
 ;-----------------------------------------------------------------
-star_cospeed:
+star_speed:
         JSR read_num            ; read parameter
         PHA
         LDA #0
@@ -233,9 +233,9 @@ star_cospeed:
         RTS
 
 ;-----------------------------------------------------------------
-; *COMEM <n>
+; *MEM <n>
 ;-----------------------------------------------------------------
-star_comem:
+star_mem:
         JSR read_num            ; read parameter
         PHA
         LDA #1
@@ -245,9 +245,9 @@ star_comem:
         RTS
 
 ;-----------------------------------------------------------------
-; *CORESET
+; *RESET
 ;-----------------------------------------------------------------
-star_coreset:
+star_reset:
         JMP TubeReset
 
 ;-----------------------------------------------------------------
