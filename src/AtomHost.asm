@@ -1321,6 +1321,15 @@ AtomWRCH:
 AtomWRCH1:
         JMP OSWRCH
 
+TimerLo:
+        .byte <9999, <19999, <39999
+
+TimerHi:
+        .byte >9999, >19999, >39999
+
+;Speed:
+;        .byte "124"
+
 ViaInit:
         LDA #<ViaISR            ; Setup the interrupt handler
         STA IRQ1V
@@ -1332,9 +1341,30 @@ ViaInit:
         STA ViaTime + 2
         STA ViaTime + 3
         STA ViaTime + 4
-        LDA #<9999              ; 10ms timer interrupts
+        JSR $FE66
+        LDA #$FF
         STA ViaT1CounterL
-        LDA #>9999
+        STA ViaT1CounterH
+        JSR $FE66
+        LDA ViaT1CounterH
+        ; at 1MHZ it will be 255 -  16666/256 = 190
+        ; at 2MHZ it will be 255 -  33333/256 = 125
+        ; at 4MHz it will be 255 -  66666/256 = -5 = 251
+        LDX #2
+        CMP #220
+        BCS VsyncTestDone
+        DEX
+        CMP #150
+        BCC VsyncTestDone
+        DEX
+VsyncTestDone:
+;        LDA Speed,X
+;        JSR OSWRCH
+;        JSR STROUT
+;        .byte "MHZ HOST CLOCK", 10, 13
+        LDA TimerLo,X           ; 10ms timer interrupts
+        STA ViaT1CounterL
+        LDA TimerHi,X
         STA ViaT1CounterH
         LDA #$40                ; Enable T1 continuous interrupts
         STA ViaACR              ; Disable everything else
