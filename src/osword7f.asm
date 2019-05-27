@@ -151,7 +151,7 @@ word7F_skipclaim:
         LDA TubeCtrl            ; drive number (0=A; 1=B)
         AND #$01
         STA drive
-	TAY
+        TAY
 
         LDA TubeCtrl            ; drive 2 = second side
         AND #$02

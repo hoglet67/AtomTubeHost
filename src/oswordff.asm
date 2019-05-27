@@ -1,47 +1,47 @@
-	ctrl  = $80
+        ctrl  = $80
         saveA = $82
-	addr  = $84
-	count = $86
+        addr  = $84
+        count = $86
 
 oswordff:
         STX ctrl+0
         STY ctrl+1
-        STA saveA	; Save OSWORD parameters
+        STA saveA       ; Save OSWORD parameters
 
 .if (debug_osw_ff = 1)
-	LDY #$00
+        LDY #$00
 oswordffdebug:
         LDA (ctrl),Y
-	JSR DebugHexOut
-	INY
-	CPY #$0D
-	BNE oswordffdebug
-	JSR DebugNewline
+        JSR DebugHexOut
+        INY
+        CPY #$0D
+        BNE oswordffdebug
+        JSR DebugNewline
 .endif
-	
+
         LDY #$02
         LDA (ctrl),Y
-        STA addr+0	; I/O address low byte
+        STA addr+0      ; I/O address low byte
         INY
         LDA (ctrl),Y
         STA addr+1      ; I/O address high byte
         JSR L259C       ; Claim the Tube
         LDY #$0C
         LDA (ctrl),Y
-        PHA		; Get read/write command
+        PHA             ; Get read/write command
         LDA ctrl+0
         CLC
         ADC #$06
-        TAX		; Point to Control+6
+        TAX             ; Point to Control+6
         LDA #$00
         ADC ctrl+1
-        TAY		; XY->CoPro address in control block
+        TAY             ; XY->CoPro address in control block
         PLA
         PHA
         JSR L0406       ; Initiate specified action
         LDY #$0A
         LDA (ctrl),Y
-        TAX		; Get count low byte
+        TAX             ; Get count low byte
         INY
         LDA (ctrl),Y
         STA count       ; Get count high byte
@@ -59,17 +59,17 @@ L2549:
 
         JSR L259B
         JSR L259B
-        JSR L259B	; Delay before starting
+        JSR L259B       ; Delay before starting
         LDY #$00        ; Zero offset for (zp),Y
 L2558:
         LDA TubeR3
         STA (addr),Y    ; Transfer a byte C->H
         JSR L259B
         JSR L259B
-        JSR L259B	; Delay between bytes
+        JSR L259B       ; Delay between bytes
         INC addr+0
         BNE L256C
-        INC addr+1	; Update I/O address
+        INC addr+1      ; Update I/O address
 L256C:
         DEX
         BNE L2558       ; Loop for up to 256 bytes
@@ -81,7 +81,7 @@ L2575:
         LDY #$00
 L2577:
         LDA (addr),Y
-        STA TubeR3       ; Transfer byte H->C
+        STA TubeR3      ; Transfer byte H->C
         JSR L259B
         JSR L259B
         JSR L259B       ; Delay between bytes

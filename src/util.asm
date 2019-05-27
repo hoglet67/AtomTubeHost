@@ -3,44 +3,44 @@
 ; TODO: Check these really don't need any delay / handshaking....
 
 prepare_read_data:
-   lda   #CMD_INIT_READ
-   bne   write_cmd_reg
+        LDA #CMD_INIT_READ
+        BNE write_cmd_reg
 
 prepare_write_data:
-   lda   #CMD_INIT_WRITE
-   ; fall through to write_cmd_reg
+        LDA #CMD_INIT_WRITE
+        ; fall through to write_cmd_reg
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ; Write command + wait
 
 write_cmd_reg:
-   sta   ACMD_REG
+        STA ACMD_REG
 .ifdef AVR
-   jmp   WaitUntilRead
+        JMP WaitUntilRead
 .else
-   jmp   inter_write_delay
+        JMP inter_write_delay
 .endif
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ; Write latch + wait
 
 write_latch_reg:
-   sta   ALATCH_REG
+        STA ALATCH_REG
 .ifdef AVR
-   jmp   WaitUntilRead
+        JMP WaitUntilRead
 .else
-   jmp   inter_write_delay
+        JMP inter_write_delay
 .endif
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ; Write data + wait
 
 write_data_reg:
-   sta   AWRITE_DATA_REG
+        STA AWRITE_DATA_REG
 .ifdef AVR
-   jmp   WaitUntilRead
+        JMP WaitUntilRead
 .else
-   jmp   data_write_delay
+        JMP data_write_delay
 .endif
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
@@ -48,12 +48,12 @@ write_data_reg:
 
 read_data_reg:
 .ifdef AVR
-   jsr   WaitUntilWritten
+        JSR WaitUntilWritten
 .else
-   jsr   data_read_delay
+        JSR data_read_delay
 .endif
-   lda   AREAD_DATA_REG
-   rts
+        LDA AREAD_DATA_REG
+        RTS
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
@@ -63,21 +63,21 @@ read_data_reg:
 ;
 inter_write_delay:
 .ifndef AVR
-   pha
-   lda   #16
-   bne   write_delay
+        PHA
+        LDA #16
+        BNE write_delay
 data_write_delay:
-   pha
-   lda   #4
+        PHA
+        LDA #4
 write_delay:
-   sec
+        SEC
 @loop:
-   sbc   #1
-   bne   @loop
-   pla
+        SBC #1
+        BNE @loop
+        PLA
 data_read_delay:
 .endif
-   rts
+        RTS
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
@@ -87,9 +87,9 @@ data_read_delay:
 
 fast_cmd:
 .ifndef AVR
-   jsr   write_cmd_reg
-   lda   ACMD_REG
-   rts
+        JSR write_cmd_reg
+        LDA ACMD_REG
+        RTS
 .else
    ; fall through to slow_cmd
 .endif
@@ -101,42 +101,42 @@ fast_cmd:
 ; Simply an alias for "jsr slow_cmd" on AVR.
 
 slow_cmd:
-   jsr   write_cmd_reg
+        JSR write_cmd_reg
 
 .ifndef AVR
 slow_cmd_loop:
-   lda   #0
-   sec
+        LDA #0
+        SEC
 slow_cmd_delay_loop:
-   sbc   #1
-   bne   slow_cmd_delay_loop
+        SBC #1
+        BNE slow_cmd_delay_loop
 
-   lda   ACMD_REG
-   bmi   slow_cmd_loop       ; loop until command done bit (bit 7) is cleared
+        LDA ACMD_REG
+        BMI slow_cmd_loop       ; loop until command done bit (bit 7) is cleared
 .else
-   jsr   WaitWhileBusy       ; Keep waiting until not busy
-   lda   ACMD_REG            ; get status for client
+        JSR WaitWhileBusy       ; Keep waiting until not busy
+        LDA ACMD_REG            ; get status for client
 .endif
-   rts
+        RTS
 
 .ifdef AVR
 WaitUntilRead:
-   lda   ASTATUS_REG         ; Read status reg
-   and   #MMC_MCU_READ       ; Been read yet ?
-   bne   WaitUntilRead       ; nope keep waiting
-   rts
+        LDA ASTATUS_REG         ; Read status reg
+        AND #MMC_MCU_READ       ; Been read yet ?
+        BNE WaitUntilRead       ; nope keep waiting
+        RTS
 
 WaitUntilWritten:
-   lda   ASTATUS_REG         ; Read status reg
-   and   #MMC_MCU_WROTE      ; Been written yet ?
-   beq   WaitUntilWritten    ; nope keep waiting
-   rts
+        LDA ASTATUS_REG         ; Read status reg
+        AND #MMC_MCU_WROTE      ; Been written yet ?
+        BEQ WaitUntilWritten    ; nope keep waiting
+        RTS
 
 WaitWhileBusy:
-   lda   ASTATUS_REG         ; Read status reg
-   and   #MMC_MCU_BUSY       ; MCU still busy ?
-   bne   WaitWhileBusy       ; yes keep waiting
-   rts
+        LDA ASTATUS_REG         ; Read status reg
+        AND #MMC_MCU_BUSY       ; MCU still busy ?
+        BNE WaitWhileBusy       ; yes keep waiting
+        RTS
 .endif
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
@@ -148,13 +148,13 @@ WaitWhileBusy:
 ; Output $140 contains filename, terminated by $0D
 ;
 read_filename:
-   jsr   read_optional_filename
+        JSR read_optional_filename
 
-   cpx   #0                     ; chec the filename length > 0
-   bne   filename_ok
+        CPX #0                  ; chec the filename length > 0
+        BNE filename_ok
 
 syn_error:
-   jmp   COSSYN                 ; generate a SYN? ERROR 135
+        JMP COSSYN              ; generate a SYN? ERROR 135
 
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
@@ -166,50 +166,50 @@ syn_error:
 ; Output $140 contains filename, terminated by $0D
 ;
 read_optional_filename:
-   ldx   #0
-   ldy   $9a
+        LDX #0
+        LDY $9a
 
 @filename1:
-   jsr   SKIPSPC
-   cmp   #$22
-   beq   @filename5
+        JSR SKIPSPC
+        CMP #$22
+        BEQ @filename5
 
 @filename2:
-   cmp   #$0d
-   beq   @filename3
+        CMP #$0d
+        BEQ @filename3
 
-   sta   NAME,x
-   inx
-   iny
-   lda   $100,y
-   cmp   #$20
-   bne   @filename2
+        STA NAME,x
+        INX
+        INY
+        LDA $100,y
+        CMP #$20
+        BNE @filename2
 
 @filename3:
-   lda   #$0d
-   sta   NAME,x
-   sty   $9a
-   rts
+        LDA #$0d
+        STA NAME,x
+        STY $9a
+        RTS
 
 @filename5:
-   iny
-   lda   $100,y
-   cmp   #$0d
-   beq   syn_error
+        INY
+        LDA $100,y
+        CMP #$0d
+        BEQ syn_error
 
-   sta   NAME,x
-   inx
-   cmp   #$22
-   bne   @filename5
+        STA NAME,x
+        INX
+        CMP #$22
+        BNE @filename5
 
-   dex
-   iny
-   lda   $100,y
-   cmp   #$22
-   bne   @filename3
+        DEX
+        INY
+        LDA $100,Y
+        CMP #$22
+        BNE @filename3
 
-   inx
-   bcs   @filename5
+        INX
+        BCS @filename5
 
 filename_ok:
-   rts
+        RTS

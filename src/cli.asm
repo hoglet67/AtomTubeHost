@@ -1,13 +1,13 @@
-NEXT_PARAM      = $C231              ; OS calls
+NEXT_PARAM      = $C231         ; OS calls
 READ_PARAM      = $C8BC
 PRTDIGIT        = $F80B
 COS_POST_TEST   = $FA76
 
-STACKPOINTER    = $4                 ; STANDARD ATOM ADDRESS
+STACKPOINTER    = $4            ; STANDARD ATOM ADDRESS
 STACK1          = $16
 
 .macro FNADDR addr
-   .byte <($80 + >addr), <addr
+        .byte <($80 + >addr), <addr
 .endmacro
 
 ;=================================================================
@@ -15,102 +15,102 @@ STACK1          = $16
 ; Kees Van Oss' version of the CLI interpreter
 ;=================================================================
 star_com:
-   ldx   #$ff                   ; set up pointers
-   cld
+        LDX #$ff                ; set up pointers
+        CLD
 star_com1:
-   ldy   #0
-   jsr   SKIPSPC
-   dey
+        LDY #0
+        JSR SKIPSPC
+        DEY
 star_com2:
-   iny
-   inx
+        INY
+        INX
 
 star_com3:
-   lda   com_tab,x              ; look up star-command
-   bmi   star_com5
-   cmp   $100,y
-   beq   star_com2
-   dex
+        LDA com_tab,x           ; look up star-command
+        BMI star_com5
+        CMP $100,y
+        BEQ star_com2
+        DEX
 star_com4:
-   inx
-   lda   com_tab,x
-   bpl   star_com4
-   inx
-   lda   $100,y
-   cmp   #46                    ; '.'
-   bne   star_com1
-   iny
-   dex
-   bcs   star_com3
+        INX
+        LDA com_tab,x
+        BPL star_com4
+        INX
+        LDA $100,y
+        CMP #46                 ; '.'
+        BNE star_com1
+        INY
+        DEX
+        BCS star_com3
 
 star_com5:
-   sty   $9a
+        STY $9a
 
-   ldy   $3                     ; save command pointers
-   sty   tmp_ptr3
-   ldy   $5
-   sty   tmp_ptr5
-   ldy   $6
-   sty   tmp_ptr6
-   ldy   #<$100
-   sty   $5
-   ldy   #>$100
-   sty   $6
-   ldy   $9a
-   sty   $3
+        LDY $3                  ; save command pointers
+        STY tmp_ptr3
+        LDY $5
+        STY tmp_ptr5
+        LDY $6
+        STY tmp_ptr6
+        LDY #<$100
+        STY $5
+        LDY #>$100
+        STY $6
+        LDY $9a
+        STY $3
 
-   and   #$7F                   ; the commands are all < $8000
-   sta   $53                    ; execute star command
-   lda   com_tab+1,x
-   sta   $52
-   ldx   #0
-   jsr   comint6
+        AND #$7F                ; the commands are all < $8000
+        STA $53                 ; execute star command
+        LDA com_tab+1,x
+        STA $52
+        LDX #0
+        JSR comint6
 
-   ldy   tmp_ptr5               ; restore command pointers
-   sty   $5
-   ldy   tmp_ptr6
-   sty   $6
-   ldy   tmp_ptr3
-   sty   $3
+        LDY tmp_ptr5            ; restore command pointers
+        STY $5
+        LDY tmp_ptr6
+        STY $6
+        LDY tmp_ptr3
+        STY $3
 
-   lda   #$0d
-   sta   ($5),y
+        LDA #$0d
+        STA ($5),y
 
-   rts
+        RTS
 
 comint6:
-   jmp   ($0052)
+        JMP ($0052)
 
 
 com_tab:
-   .byte "DIN"
-   FNADDR star_din
+        .byte "DIN"
+        FNADDR star_din
 
-   .byte "DOUT"
-   FNADDR star_dout
+        .byte "DOUT"
+        FNADDR star_dout
 
-   .byte "DDISKS"
-   FNADDR star_ddisks
+        .byte "DDISKS"
+        FNADDR star_ddisks
 
-   .byte "ATOM"
-   FNADDR star_atom
+        .byte "ATOM"
+        FNADDR star_atom
 
-   .byte "COPRO"
-   FNADDR star_copro
+        .byte "COPRO"
+        FNADDR star_copro
 
-   .byte "COSPEED"
-   FNADDR star_cospeed
+        .byte "COSPEED"
+        FNADDR star_cospeed
 
-   .byte "COMEM"
-   FNADDR star_comem
+        .byte "COMEM"
+        FNADDR star_comem
 
-   .byte "CORESET"
-   FNADDR star_coreset
+        .byte "CORESET"
+        FNADDR star_coreset
 
-   FNADDR star_arbitrary
+        FNADDR star_arbitrary
 
 star_arbitrary:
-   jmp   OSCLI
+        JMP OSCLI
 
 ;-----------------------------------------------------------------
 ; *DIN <drv>,<filename>
@@ -124,15 +124,15 @@ star_arbitrary:
 ;-----------------------------------------------------------------
 
 star_din:
-   jsr   get_drive_num          ; read drive num
-   pha                          ; save drive num
-   ldy   $3
-   sty   $9a
-   jsr   read_filename          ; read diskimage name into $140
-   sty   $3
-   jsr   chk_end_command
-   pla                          ; restore drive num
-   jmp   sd_mount
+        JSR get_drive_num       ; read drive num
+        PHA                     ; save drive num
+        LDY $3
+        STY $9a
+        JSR read_filename       ; read diskimage name into $140
+        STY $3
+        JSR chk_end_command
+        PLA                     ; restore drive num
+        JMP sd_mount
 
 ;-----------------------------------------------------------------
 ; *DOUT <drv>
@@ -143,11 +143,11 @@ star_din:
 ;-----------------------------------------------------------------
 
 star_dout:
-   jsr   get_drive_num          ; read drive num
-   pha                          ; save drive num
-   jsr   chk_end_command
-   pla                          ; restore drive num
-   jmp   sd_unmount
+        JSR get_drive_num       ; read drive num
+        PHA                     ; save drive num
+        JSR chk_end_command
+        PLA                     ; restore drive num
+        JMP sd_unmount
 
 ;-----------------------------------------------------------------
 ; *DDISKS
@@ -156,32 +156,32 @@ star_dout:
 ;-----------------------------------------------------------------
 
 star_ddisks:
-   jsr   chk_end_command
+        JSR chk_end_command
 
-   lda   #CMD_GET_IMG_NAME      ; command read imagenames
-   jsr   slow_cmd
-   jsr   prepare_read_data      ; reset pointer
-   ldx   #0                     ; set drive num
+        LDA #CMD_GET_IMG_NAME   ; command read imagenames
+        JSR slow_cmd
+        JSR prepare_read_data   ; reset pointer
+        LDX #0                  ; set drive num
 
 ddisks1:
-   txa                          ; print drive num
-   jsr   PRTDIGIT
-   lda   #':'                   ; print ':'
-   jsr   OSWRCH
+        TXA                     ; print drive num
+        JSR PRTDIGIT
+        LDA #':'                ; print ':'
+        JSR OSWRCH
 
 ddisks2:
-   jsr   read_data_reg
-   jsr   OSWRCH
-   bne   ddisks2
+        JSR read_data_reg
+        JSR OSWRCH
+        BNE ddisks2
 
-   jsr   OSCRLF
-   inx                          ; next drive
-   cpx   #4
-   bne   ddisks1
+        JSR OSCRLF
+        INX                     ; next drive
+        CPX #4
+        BNE ddisks1
 
-return: 
-   rts
-        
+return:
+        RTS
+
 ;-----------------------------------------------------------------
 ; *ATOM
 ;
@@ -195,68 +195,68 @@ return:
 
 star_atom:
 
-   lda   #$7F                     ; Disable all interrupts
-   sta   ViaIER
-   jsr   TubeFree                 ; Release the tube
-   ldy   #0                       ; Close all open files
-   jsr   OSSHUT
-   lda   #0
-   sta   TubeFlag                 ; Disable tube transfers in AtoMMC
-   lda   BrkSave+0                ; Restore BRKV
-   sta   BRKV+0
-   lda   BrkSave+1
-   sta   BRKV+1
-   pla                            ; we were called as subroutine
-   pla                            ; clear stack with 4 pulls
-   pla                              
-   pla                              
-   rts                            ; this will end the tube client
+        LDA #$7F                ; Disable all interrupts
+        STA ViaIER
+        JSR TubeFree            ; Release the tube
+        LDY #0                  ; Close all open files
+        JSR OSSHUT
+        LDA #0
+        STA TubeFlag            ; Disable tube transfers in AtoMMC
+        LDA BrkSave+0           ; Restore BRKV
+        STA BRKV+0
+        LDA BrkSave+1
+        STA BRKV+1
+        PLA                     ; we were called as subroutine
+        PLA                     ; clear stack with 4 pulls
+        PLA
+        PLA
+        RTS                     ; this will end the tube client
 
 ;-----------------------------------------------------------------
 ; *COPRO <n>
 ;-----------------------------------------------------------------
 star_copro:
-   jsr   read_num               ; read parameter
-   sta   TubeS4
-   rts
+        JSR read_num            ; read parameter
+        STA TubeS4
+        RTS
 
 ;-----------------------------------------------------------------
 ; *COSPEED <n>
 ;-----------------------------------------------------------------
 star_cospeed:
-   jsr   read_num               ; read parameter
-   pha
-   lda   #0
-   sta   TubeS2
-   pla
-   sta   TubeS3
-   rts
+        JSR read_num            ; read parameter
+        PHA
+        LDA #0
+        STA TubeS2
+        PLA
+        STA TubeS3
+        RTS
 
 ;-----------------------------------------------------------------
 ; *COMEM <n>
 ;-----------------------------------------------------------------
 star_comem:
-   jsr   read_num               ; read parameter
-   pha
-   lda   #1
-   sta   TubeS2
-   pla
-   sta   TubeS3
-   rts
+        JSR read_num            ; read parameter
+        PHA
+        LDA #1
+        STA TubeS2
+        PLA
+        STA TubeS3
+        RTS
 
 ;-----------------------------------------------------------------
 ; *CORESET
 ;-----------------------------------------------------------------
 star_coreset:
-   jmp   TubeReset
+        JMP TubeReset
 
 ;-----------------------------------------------------------------
 ; sd_init
 ;-----------------------------------------------------------------
 sd_init:
-   lda   #CMD_VALID_IMG_NAMES     ; Command = SDDOS load drive config
-   jmp   slow_cmd
-        
+        LDA #CMD_VALID_IMG_NAMES ; Command = SDDOS load drive config
+        JMP slow_cmd
+
 ;-----------------------------------------------------------------
 ; sd_mount
 ;
@@ -268,51 +268,52 @@ sd_init:
 ;-----------------------------------------------------------------
 
 sd_mount:
-   pha                          ; Save drive num
-   jsr   prepare_write_data     ; Reset globalbufferpointer
-   pla                          ; Restore drive num
-   sta tmp_drive		; Save drivenr
+        PHA                     ; Save drive num
+        JSR prepare_write_data  ; Reset globalbufferpointer
+        PLA                     ; Restore drive num
+        STA tmp_drive           ; Save drivenr
 
-   ldx   #0                     ; Globalbuffer(0)=drive num
+        LDX #0                  ; Globalbuffer(0)=drive num
 loop_m:
-   jsr   write_data_reg
-   lda   NAME,x
-   inx
-   cmp   #$0d
-   bne   loop_m
+        JSR write_data_reg
+        LDA NAME,x
+        INX
+        CMP #$0d
+        BNE loop_m
 
-   lda   #0                     ; Globalbuffer(x)=stringterminator
-   jsr   write_data_reg
+        LDA #0                  ; Globalbuffer(x)=stringterminator
+        JSR write_data_reg
 
-   lda   #CMD_FILE_OPEN_IMG     ; Command = SDDOS mount
-   jsr   slow_cmd
-   cmp   #$40
-   bcs   bad_image
+        LDA #CMD_FILE_OPEN_IMG  ; Command = SDDOS mount
+        JSR slow_cmd
+        CMP #$40
+        BCS bad_image
 
-   jsr star_fatinfo		; Get disksize index
-   cpx #$ff
-   beq unmount
+        JSR star_fatinfo        ; Get disksize index
+        CPX #$ff
+        BEQ unmount
 
-   ldy tmp_drive		; Put disk params in act_disk table
-   lda disk_sect,x
-   sta act_disk_sect,y
-   lda disk_int,x
-   sta act_disk_int,y
+        LDY tmp_drive           ; Put disk params in act_disk table
+        LDA disk_sect,x
+        STA act_disk_sect,y
+        LDA disk_int,x
+        STA act_disk_int,y
 
-   rts
+        RTS
 
 unmount:
-   lda tmp_drive		; Wrong size, unmount disk
-   jsr sd_unmount
+        LDA tmp_drive           ; Wrong size, unmount disk
+        JSR sd_unmount
 
 bad_image:
-   jsr   STROUT                 ; print error
-   .byte "IMAGE?"
-   nop
-   brk
+        JSR STROUT              ; print error
+        .byte "IMAGE?"
+        NOP
+        BRK
 
-tmp_drive:	.byte 0
-        
+tmp_drive:
+       .byte 0
+
 ;-----------------------------------------------------------------
 ; sd_unmount
 ;
@@ -323,10 +324,10 @@ tmp_drive:	.byte 0
 ;-----------------------------------------------------------------
 
 sd_unmount:
-   and   #3
-   jsr   write_latch_reg        ; Send drive num
-   lda   #CMD_IMG_UNMOUNT       ; Command = SDDOS unmount
-   jmp   slow_cmd
+        AND #3
+        JSR write_latch_reg     ; Send drive num
+        LDA #CMD_IMG_UNMOUNT    ; Command = SDDOS unmount
+        JMP slow_cmd
 
 ;-----------------------------------------------------------------
 ; GET_DRIVE_NUM
@@ -336,16 +337,16 @@ sd_unmount:
 ;-----------------------------------------------------------------
 
 get_drive_num:
-   jsr   read_num               ; read parameter
-   cmp   #4
-   bcs   bad_drive
-   rts
+        JSR read_num            ; read parameter
+        CMP #4
+        BCS bad_drive
+        RTS
 
 bad_drive:
-   jsr   STROUT                 ; print error
-   .byte "DRIVE?"
-   nop
-   brk
+        JSR STROUT              ; print error
+        .byte "DRIVE?"
+        NOP
+        BRK
 
 ;-----------------------------------------------------------------
 ; Read numeric parameter or calculate expression
@@ -355,21 +356,21 @@ bad_drive:
 ;-----------------------------------------------------------------
 
 read_num:
-   jsr   READ_PARAM             ; read expression on stack
-   jsr   NEXT_PARAM             ; next param
+        JSR READ_PARAM          ; read expression on stack
+        JSR NEXT_PARAM          ; next param
 
-   ldy   #0                     ; reset stackpointer
-   sty   STACKPOINTER
-   lda   STACK1                 ; put byte0 in a
-   rts
+        LDY #0                  ; reset stackpointer
+        STY STACKPOINTER
+        LDA STACK1              ; put byte0 in a
+        RTS
 
 ;-----------------------------------------------------------------
 ; Check for end of command, #0D
 ;-----------------------------------------------------------------
 
 chk_end_command:
-   ldy   $3
-   jmp   COS_POST_TEST
+        LDY $3
+        JMP COS_POST_TEST
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
@@ -387,35 +388,35 @@ star_fatinfo:
 ; this is used by fatinfo, exec, and rload
 
 open_filename_getinfo:
-   jsr   open_file_read		; invokes error handler if return code > 64
+        JSR open_file_read      ; invokes error handler if return code > 64
 
-   jsr   set_rwptr_to_name	; get the FAT file size - text files won't have ATM headers
-   lda   #CMD_FILE_GETINFO
-   jsr   slow_cmd
+        JSR set_rwptr_to_name   ; get the FAT file size - text files won't have ATM headers
+        LDA #CMD_FILE_GETINFO
+        JSR slow_cmd
 
-   ldx   #13			; Read FAT data
-   jsr read_data_buffer
+        LDX #13                 ; Read FAT data
+        JSR read_data_buffer
 
-   ldx  #$ff			; Check if disksize in table
+        LDX #$ff                ; Check if disksize in table
 print_loop:
-   inx
-   lda table_disksize_lb,x
-   cmp #$ff
-   beq not_found_error
-   cmp NAME+1
-   bne print_loop
+        INX
+        LDA table_disksize_lb,x
+        CMP #$ff
+        BEQ not_found_error
+        CMP NAME+1
+        BNE print_loop
 
-   lda table_disksize_hb,x	; lb found, check hb
-   cmp NAME+2
-   bne print_loop
+        LDA table_disksize_hb,x ; lb found, check hb
+        CMP NAME+2
+        BNE print_loop
 
 disk_found:
-   rts				; Disksize in table, return index in X
+        RTS                     ; Disksize in table, return index in X
 
 not_found_error:
-   ldx #$ff			; Disksize not found, return $ff in X
-   rts
-   
+        LDX #$ff                ; Disksize not found, return $ff in X
+        RTS
+
 ;----------------------------------------------------
 ; Disksize table
 ;
@@ -423,22 +424,31 @@ not_found_error:
 ; BBC disksize  SD DS 80tr 10sect = 400 KB ($064000)
 ;----------------------------------------------------
 
-table_disksize_hb:	.byte $01,$06,$ff	; hb disksize/256
-table_disksize_lb:	.byte $90,$40,$ff	; lb disksize/256
+table_disksize_hb:
+        .byte $01,$06,$ff       ; hb disksize/256
+
+table_disksize_lb:
+             .byte $90,$40,$ff  ; lb disksize/256
 
 ;---------------------------------------
 ; Disktype parameters  0,  1
 ;---------------------------------------
 
-disk_sect:	.byte 10, 20	; Number of sectors per (image) track
-disk_int:	.byte  0, 10	; Number of sectors to skip to read interleaved data
+disk_sect:
+             .byte 10, 20       ; Number of sectors per (image) track
+
+disk_int:
+             .byte  0, 10       ; Number of sectors to skip to read interleaved data
 
 ;---------------------------------------
 ; Drive parameters     0,  1,  2,  3
 ;---------------------------------------
 
-act_disk_sect:	.byte  0,  0,  0,  0
-act_disk_int:	.byte  0,  0,  0,  0
+act_disk_sect:
+             .byte  0,  0,  0,  0
+
+act_disk_int:
+             .byte  0,  0,  0,  0
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
@@ -449,19 +459,19 @@ act_disk_int:	.byte  0,  0,  0,  0
 ; (RWPTR) points to store
 ;
 read_data_buffer:
-   jsr   prepare_read_data
+        JSR prepare_read_data
 
-   ldy   #0
+        LDY #0
 
 @loop:
-   jsr   read_data_reg
-   sta   (RWPTR),y
-   iny
-   dex
-   bne   @loop
+        JSR read_data_reg
+        STA (RWPTR),y
+        INY
+        DEX
+        BNE @loop
 
 return_ok:
-   rts
+        RTS
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
@@ -470,19 +480,19 @@ return_ok:
 ; this is called 5 times, so making it a subroutine rather than a macro
 ; saves 4 * (8 - 3) - 9 = 11 bytes!
 set_rwptr_to_name:
-   lda   #<NAME
-   sta   RWPTR
-   lda   #>NAME
-   sta   RWPTR+1
-   rts
+        LDA #<NAME
+        STA RWPTR
+        LDA #>NAME
+        STA RWPTR+1
+        RTS
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
 ; Read filename, then fall through to open_file_read
 
 open_filename_read:
-   jsr   read_filename          ; copy filename from $100 to $140
-   ; fall through to open_file_read 
+        JSR read_filename       ; copy filename from $100 to $140
+        ; fall through to open_file_read
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
@@ -493,43 +503,43 @@ open_filename_read:
 ;
 
 open_file_read:
-   lda   #CMD_FILE_OPEN_READ
-   jsr   open_file
-   jmp   expect64orless
+        LDA #CMD_FILE_OPEN_READ
+        JSR open_file
+        JMP expect64orless
 
 open_file_write:
-   lda   #CMD_FILE_OPEN_WRITE
+        LDA #CMD_FILE_OPEN_WRITE
 
 ; Falls through to
 open_file:
-   pha
-   jsr   send_name
-   pla
-   jmp   slow_cmd
+        PHA
+        JSR send_name
+        PLA
+        JMP slow_cmd
 
 send_name:
-   jsr   prepare_write_data
+        JSR prepare_write_data
 
 send_additional_name:
-   ldx   #0
-   beq   @pumpname
+        LDX #0
+        BEQ @pumpname
 
 @nextchar:
-   jsr   write_data_reg
-   inx
+        JSR write_data_reg
+        INX
 
 @pumpname:
-   lda   NAME,x			; write filename to filename buffer
-   cmp   #$0d
-   bne   @nextchar
+        LDA NAME,x              ; write filename to filename buffer
+        CMP #$0d
+        BNE @nextchar
 
-   lda   #0			; terminate the string
-   jmp   write_data_reg
+        LDA #0                  ; terminate the string
+        JMP write_data_reg
 
 expect64orless:
-   cmp   #STATUS_COMPLETE+1
-   bcc   return_ok
-   ; fall through to report_disk_failure
+        CMP #STATUS_COMPLETE+1
+        BCC return_ok
+        ; fall through to report_disk_failure
 
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
@@ -537,60 +547,60 @@ expect64orless:
 ; report a file system error
 ;
 report_disk_failure:
-   and   #ERROR_MASK
-   pha                          ; save error code
-   tax                          ; error code into x
-   ldy   #$ff                   ; string indexer
+        AND #ERROR_MASK
+        PHA                     ; save error code
+        TAX                     ; error code into x
+        LDY #$ff                ; string indexer
 
 @findstring:
-   iny                          ; do this here because we need the z flag below
-   lda   diskerrortab,y
-   bne   @findstring            ; zip along the string till we find a zero
+        INY                     ; do this here because we need the z flag below
+        LDA diskerrortab,y
+        BNE @findstring         ; zip along the string till we find a zero
 
-   dex                          ; when this bottoms we've found our error
-   bne   @findstring
-   pla                          ; restore error code
-   tax                          ; error code in X
-   lda   TUBE_FLAG
-   cmp   #TUBE_ENABLED
-   beq   @tubeError
+        DEX                     ; when this bottoms we've found our error
+        BNE @findstring
+        PLA                     ; restore error code
+        TAX                     ; error code in X
+        LDA TUBE_FLAG
+        CMP #TUBE_ENABLED
+        BEQ @tubeError
 
 @printstring:
-   iny
-   lda   diskerrortab,y
-   jsr   OSWRCH
-   bne   @printstring
-   brk
+        INY
+        LDA diskerrortab,y
+        JSR OSWRCH
+        BNE @printstring
+        BRK
 
 @tubeError:
-   iny                          ; store index for basic BRK-alike hander
-   tya
-   clc
-   adc   #<diskerrortab
-   sta   $d5
-   lda   #>diskerrortab
-   adc   #0
-   sta   $d6
-   jmp   L0409                  ; error code in X (must be non zero)
+        INY                     ; store index for basic BRK-alike hander
+        TYA
+        CLC
+        ADC #<diskerrortab
+        STA $d5
+        LDA #>diskerrortab
+        ADC #0
+        STA $d6
+        JMP L0409               ; error code in X (must be non zero)
 
 diskerrortab:
-   .byte $00
-   .byte "DISK FAULT",$00
-   .byte "INTERNAL ERROR",$00
-   .byte "NOT READY",$00
-   .byte "NOT FOUND",$00
-   .byte "NO PATH",$00
-   .byte "INVALID NAME",$00
-   .byte "ACCESS DENIED",$00
-   .byte "EXISTS",$00
-   .byte "INVALID OBJECT",$00
-   .byte "WRITE PROTECTED",$00
-   .byte "INVALID DRIVE",$00
-   .byte "NOT ENABLED",$00
-   .byte "NO FILESYSTEM",$00
-   .byte $00                    ; mkfs error
-   .byte "TIMEOUT",$00
-   .byte "EEPROM ERROR",$00
-   .byte "FAILED",$00
-   .byte "TOO MANY",$00
-   .byte "SILLY",$0d
+        .byte $00
+        .byte "DISK FAULT",$00
+        .byte "INTERNAL ERROR",$00
+        .byte "NOT READY",$00
+        .byte "NOT FOUND",$00
+        .byte "NO PATH",$00
+        .byte "INVALID NAME",$00
+        .byte "ACCESS DENIED",$00
+        .byte "EXISTS",$00
+        .byte "INVALID OBJECT",$00
+        .byte "WRITE PROTECTED",$00
+        .byte "INVALID DRIVE",$00
+        .byte "NOT ENABLED",$00
+        .byte "NO FILESYSTEM",$00
+        .byte $00               ; mkfs error
+        .byte "TIMEOUT",$00
+        .byte "EEPROM ERROR",$00
+        .byte "FAILED",$00
+        .byte "TOO MANY",$00
+        .byte "SILLY",$0d

@@ -26,7 +26,7 @@
         OSNEWL   = $FFED
         OSWRCR   = $FFF2
         OSCLI    = $FFF7
-        
+
         RDBUFFER = $F876        ; read character from input buffer but ignores spaces
 
         ;; These are already defined in atmmc2def.asm
@@ -111,9 +111,9 @@
 ;;; --------------------------
 
 
-.if (atmhdr = 1)	
+.if (atmhdr = 1)
 AtmHeader:
-	.SEGMENT "HEADER"
+        .SEGMENT "HEADER"
         .byte    "TUBE"
         .word    0,0,0,0,0,0
         .word    StartAddr
@@ -121,8 +121,8 @@ AtmHeader:
         .word    EndAddr - StartAddr
 .endif
 
-	.SEGMENT "CODE"
-	
+        .SEGMENT "CODE"
+
 StartAddr:
 
 ;;; Main Entry Point Block
@@ -166,7 +166,7 @@ NoParam:
 .if (buffered_kbd = 1)
         STA KeyBuf              ; the ASCII value, or zero if a key wasn't pressed
         LDA #$80
-	STA KeyFlag             ; non zero if the key is still held down, decremented at 100Hz for REPT
+        STA KeyFlag             ; non zero if the key is still held down, decremented at 100Hz for REPT
 .endif
         LDA #TubeEna            ; Enable tube transfers in AtoMMC
         STA TubeFlag
@@ -177,7 +177,7 @@ NoParam:
         BNE NoGodil
         LDA GodilModeExtension  ; Test GODIL 80x40 mode
         BPL NoGodil
-        LDA #$80		; Allow lower case characters to be output
+        LDA #$80                ; Allow lower case characters to be output
         BNE UpdateGodilFlag
 NoGodil:
         LDA #$00
@@ -210,7 +210,7 @@ TubeReset:
 ;         BIT    TubeS1           ; Still data available?
 ;         BMI    ClearVduFifo     ; Yes, then read next byte
 ;         JSR    $FE66            ; Wait another second/60
-        
+
         LDA #$20
         STA TubeS1
 StartupLp1:
@@ -437,21 +437,21 @@ FindLanguageAddr:
         LDA #>LangStart
         STA TubeCtrl + 1        ; Set source address to language
         LDA #$20
-        AND LangStart + 6        ; Check relocation bit in ROM type
+        AND LangStart + 6       ; Check relocation bit in ROM type
         TAY                     ; If no relocation address, A=0, Y=0
         STY TubeAddr            ; Set Tube address to $xxxx8000
         BEQ FindLanguageAddr2   ; Jump forward with no relocation
 
-        LDX LangStart + 7        ; Get offset to ROM copyright
+        LDX LangStart + 7       ; Get offset to ROM copyright
 FindLanguageAddr1:
         INX
-        LDA LangStart, X         ; Skip past copyright message
+        LDA LangStart, X        ; Skip past copyright message
         BNE FindLanguageAddr1   ; Loop until terminating zero byte
-        LDA LangStart + 1, X     ; Get relocation address from after
+        LDA LangStart + 1, X    ; Get relocation address from after
         STA TubeAddr            ; copyright message
         LDA LangStart + 2, X
         STA TubeAddr + 1
-        LDY LangStart + 3, X     ; Get two high bytes to Y and A
+        LDY LangStart + 3, X    ; Get two high bytes to Y and A
         LDA LangStart + 4, X
 
 ;;; Set Tube address high bytes
@@ -466,31 +466,31 @@ FindLanguageAddr2:
 ;;; ------------------------
 
 TransferFlags:
-        .byte $86                ; CoPro->I/O bytes
-        .byte $88                ; I/O->CoPro bytes
-        .byte $96                ; CoPro->I/O words
-        .byte $98                ; I/O->CoPro words
-        .byte $18                ; Set Execute Address in CoPro
-        .byte $18                ; Release Tube
-        .byte $82                ; CoPro->I/O 256 bytes
-        .byte $18                ; I/O->CoPro 256 bytes
+        .byte $86               ; CoPro->I/O bytes
+        .byte $88               ; I/O->CoPro bytes
+        .byte $96               ; CoPro->I/O words
+        .byte $98               ; I/O->CoPro words
+        .byte $18               ; Set Execute Address in CoPro
+        .byte $18               ; Release Tube
+        .byte $82               ; CoPro->I/O 256 bytes
+        .byte $18               ; I/O->CoPro 256 bytes
 
 ;;; pointers to R2 commands
 ;;; -----------------------
 
 R2CmdHandlers:
-        .word rdch               ; A=00
-        .word clii               ; A=02
-        .word bytelo             ; A=04
-        .word bytehi             ; A=06
-        .word word               ; A=08
-        .word rdline             ; A=0A
-        .word args               ; A=0C
-        .word bget               ; A=0E
-        .word bput               ; A=10
-        .word find               ; A=12
-        .word file               ; A=14
-        .word gbpb               ; A=16
+        .word rdch              ; A=00
+        .word clii              ; A=02
+        .word bytelo            ; A=04
+        .word bytehi            ; A=06
+        .word word              ; A=08
+        .word rdline            ; A=0A
+        .word args              ; A=0C
+        .word bget              ; A=0E
+        .word bput              ; A=10
+        .word find              ; A=12
+        .word file              ; A=14
+        .word gbpb              ; A=16
 
 
 ;;; BRK handler
@@ -1263,8 +1263,8 @@ PollFlagClear:
 
         JSR ConvertKey          ; Convert to ASCII
         STA KeyBuf              ; store in the one character keyboard buffer
-	LDA #10
-	STA KeyFlag             ; Set the KeyFlag
+        LDA #10
+        STA KeyFlag             ; Set the KeyFlag
 
 PollExit:
         PLA
@@ -1351,21 +1351,21 @@ ViaISR:
         INC ViaTime + 4
 
 ViaRept:
-	BIT $B002		; test the repeat key
-	BVS ViaExit
-	LDA KeyFlag		; decrement the key flag if non-zero
-	BEQ ViaExit
-	DEC KeyFlag
-	
+        BIT $B002               ; test the repeat key
+        BVS ViaExit
+        LDA KeyFlag             ; decrement the key flag if non-zero
+        BEQ ViaExit
+        DEC KeyFlag
+
 ViaExit:
         PLA                     ; the Atom stacks A for us
         RTI
 
 ViaTime:
         .byte 0,0,0,0,0
-        
+
 BrkSave:
-		  .byte 0,0
+        .byte 0,0
 
 
 ;;; Debugging output, avoid trashing A
