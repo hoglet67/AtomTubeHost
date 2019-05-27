@@ -476,24 +476,25 @@ not_found_error:
 ; Disksize table
 ;
 ; Atom disksize SD SS 40tr 10sect = 100 KB ($019000)
+; BBC disksize  SD SS 80tr 10sect = 200 KB ($032000)
 ; BBC disksize  SD DS 80tr 10sect = 400 KB ($064000)
 ;----------------------------------------------------
 
 table_disksize_hb:
-        .byte $01,$06,$ff       ; hb disksize/256
+        .byte $01,$03,$06,$ff   ; hb disksize/256
 
 table_disksize_lb:
-        .byte $90,$40,$ff       ; lb disksize/256
+        .byte $90,$20,$40,$ff   ; lb disksize/256
 
 ;---------------------------------------
 ; Disktype parameters  0,  1
 ;---------------------------------------
 
 disk_sect:
-        .byte 10, 20            ; Number of sectors per (image) track
+        .byte 10, 10, 20        ; Number of sectors per (image) track
 
 disk_int:
-        .byte  0, 10            ; Number of sectors to skip to read interleaved data
+        .byte  0,  0, 10        ; Number of sectors to skip to read interleaved data
 
 ;---------------------------------------
 ; Drive parameters     0,  1,  2,  3
