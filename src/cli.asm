@@ -253,7 +253,64 @@ star_atom:
         LDA #$7F                ; Disable all interrupts
         STA ViaIER
         JSR TubeFree            ; Release the tube
-        LDY #0                  ; Close all open files
+
+        ;; Close open files
+        ;;
+        ;; Normally you would just do:
+        ;;    LDY #0
+        ;;    JSR OSSHUT
+        ;;
+        ;; However....
+        ;;
+        ;; The AtoMMC firmware supports just four open files:
+        ;;    - a scratch file (for general AtoMMC commands)
+        ;;    - three random access files (for RAF)
+        ;;
+        ;; The AtoMMC firmware also supports SDDOS images.
+        ;; Originally this used the scratch file, because
+        ;; the SDDOS and AtoMMC capabilities were thought
+        ;; to be mutually exclusive. But with the Atom
+        ;; Tube Host that's no longer the case.
+        ;;
+        ;; This was recognised in 2016 and addressed in the 2C firmware
+        ;; https://stardot.org.uk/forums/viewtopic.php?p=134801#p134801
+        ;;
+        ;; The fix was to use random access file #3 rather than
+        ;; the scratch file for SDDOS operations.
+        ;;
+        ;; It was done this way, rather than by dedicating an extra
+        ;; file for SDDOS operations, because of severe memory limitations
+        ;; in the 18F4525 PIC, which only has 3968 bytes of RAM.
+        ;;
+        ;; A consequence of this is that a Y=0 OSSHUT will actually
+        ;; close any open SDDOS images.
+        ;;
+        ;; Why is this bad?
+        ;;
+        ;; Because it does it in such a way that the AtoMMC firmware
+        ;; thinks the image file is still open. And commands like
+        ;; *DDISKS show the image as still mounted.
+        ;;
+        ;; As a short term work around, we'll avoid using Y=0 OSSHUT
+        ;; here, and instead manually close the other two files
+        ;; that might be open.
+        ;;
+        ;; Note, if an application running on a Co Pro really did
+        ;; open three random access files, and make use of OSWORD
+        ;; A=7F raw disk access, things would break horribly. But
+        ;; this combination is actually quite unlikely. A Co Pro
+        ;; will typically use OSWORD 7F only (like CPM and FLEX)
+        ;; or normal MOS file access. I can't think of an example
+        ;; where both would be used at the same time.
+        ;;
+        ;; The long term fix involves an AtoMMC firmware change:
+        ;; 1. Reduce the number of RAF files from three to two, or
+        ;; 2. Find room for additional file dedicated to SDDOS, or
+        ;; 3. Somehow safely share a file between RAF and SDDOS
+
+        LDY #$61                ; Close open random access file #1
+        JSR OSSHUT
+        LDY #$62                ; Close open random access file #2
         JSR OSSHUT
         LDA #0
         STA TubeFlag            ; Disable tube transfers in AtoMMC
