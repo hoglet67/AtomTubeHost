@@ -598,11 +598,6 @@ RdLineLp1:
         BNE RdLineChar
         CPY #0
         BEQ RdLineLp1           ; Nothing to delete
-        LDA #8
-        JSR AtomWRCH
-        LDA #32
-        JSR AtomWRCH
-        LDA #8
         JSR AtomWRCH
         DEY
         JMP RdLineLp1           ; Delete one character
@@ -1311,12 +1306,23 @@ ConvertCursor:
 AtomWRCH:
         BIT GodilFlag           ; Check if running in 80x40 mode
         BMI AtomWRCH1
+        CMP #$7F                ; Handle delete
+        BEQ AtomWRCH1
         CMP #$60                ; Mask lower case
         BCC AtomWRCH1
         AND #$DF
 AtomWRCH1:
         JMP OSWRCH
-
+AtomWRCH2:
+        PHA
+        LDA #8
+        JSR AtomWRCH
+        LDA #32
+        JSR AtomWRCH
+        LDA #8
+        JSR AtomWRCH
+        PLA
+        RTS
 TimerLo:
         .byte <9999, <19999, <39999
 
