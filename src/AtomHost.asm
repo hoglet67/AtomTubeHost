@@ -140,6 +140,9 @@ L0409:
 InitialStack:
         .byte 0
 
+EscapeAction:
+        .byte 0
+
 ;;; Start up the Atom Tube system
 ;;; ----------------------------
 
@@ -672,7 +675,12 @@ bytehi:
         BEQ osbyteB1
         CMP #$D8
         BEQ osbyteD8
+        CMP #$80
+        BEQ osbyte80
+        CMP #$E5
+        BEQ osbyteE5
 
+osbyte_unsupported:
 ;;; Log an unsupported OSBYTE
 .if (debug_unsupp = 1)
         PHA
@@ -706,6 +714,20 @@ osbyteD8:
         JSR TubeSendR2
         JMP TubeSendIdle
 
+osbyte80:                       ; Test channel / buffer status
+        CPX #$80
+        BCC osbyte_unsupported  ; positive X: read channel, unsupported
+        CPY #$FF
+        BNE osbyte_unsupported  ; Y=$ff is keyboard buffer
+        JSR PollKeyboard        ; test if a key is pressed
+        LDX KeyBuf              ; 0 if no key is pressed
+        BEQ osbyte80_nokey
+        LDX #1
+osbyte80_nokey:
+        LDY #0                  ; YX=number of chars in kbd buffer (0000 or 0001)
+        TYA                     ; Cy undefined
+        BEQ osbyteret
+
 osbyte98:
 .if (buffered_kbd = 1)
         JSR PollKeyboard
@@ -720,11 +742,26 @@ osbyte98_send:
 .else
         LDA #$ff                ; Cy=1 (Empty)
 .endif
+osbyteret:
         JSR TubeSendR2
         TYA                     ; Y preserved
         JSR TubeSendR2
         TXA                     ; X preserved
         JMP TubeSendIdle
+
+osbyteE5:                       ; Set escape action
+        LDA EscapeAction
+        PHA
+        TYA
+        AND EscapeAction
+        STA EscapeAction
+        TXA
+        EOR EscapeAction
+        STA EscapeAction
+        PLA
+        TAX                     ; return old value in X
+        LDA #$00                ; Cy=0 (Undefined)
+        BEQ osbyteret
 
 word:
         JSR TubeWaitR2          ; Get A
@@ -1180,6 +1217,9 @@ EscapeCopy:
 
 
 EscapeCheck:
+        LDA EscapeAction
+        BNE EscapeReturn
+
         LDA $B001               ; Read keyboard hardware
         EOR EscapeFlag
         AND #$20
