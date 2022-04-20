@@ -457,7 +457,7 @@ loop_ex:
         CMP #$40
         BCS bad_image
 
-        JSR star_fatinfo        ; Get disksize index
+        JSR sd_getsize          ; Get disksize index
         CPX #$ff
         BEQ unmount
 
@@ -543,43 +543,55 @@ chk_end_command:
         LDY $3
         JMP COS_POST_TEST
 
-;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
-;
-; *FATINFO [filename]
-;
-; Shows fat filesystem file info - size on disk, sector, fptr and attrib.
-;
-star_fatinfo:
-
 
 ;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
 ;
-; opens a file for reading, then gets the file info
+; Calls FILE_GETINFO on the current SDDOS image file and compares the length
+; against a table of expected images lengths
 ;
-; this is used by fatinfo, exec, and rload
+; Returns:
+;    X=00 for an Atom disksize SD SS 40tr 10sect = 100 KB ($019000)
+;    X=01 for a BBC disksize   SD SS 80tr 10sect = 200 KB ($032000)
+;    X=02 for a BBC disksize   SD DS 80tr 10sect = 400 KB ($064000)
+;    X=FF otherwise
+;
+; 2022-04-20 DMB: Rewrote to avoid the AtoMMC2 firmware the image file more than once
 
-open_filename_getinfo:
-        JSR open_file_read      ; invokes error handler if return code > 64
+sd_getsize:
 
-        JSR set_rwptr_to_name   ; get the FAT file size - text files won't have ATM headers
-        LDA #CMD_FILE_GETINFO
+        ; Determine the length (in bytes) of the SDDOS Disk Image
+        ;
+        ; Normally the file length would be read from the ATM header, but SDDOS dis images
+        ; are raw files, not ATM files, so instead we ask AtoMMC2 firmware for the FATINFO
+        ; of the already open file that AtoMMC uses for SDDOS disk Images, which is always
+        ; RAF file 3.
+        ;
+        LDA #CMD_FILE_GETINFO+3*$20
         JSR slow_cmd
 
-        LDX #13                 ; Read FAT data
-        JSR read_data_buffer
+        ; Read FAT data back; the first 4 bytes of which are the file length
+        JSR prepare_read_data
+        LDY #0
+read_file_length_loop:
+        JSR read_data_reg
+        STA NAME, y
+        INY
+        CPY #4
+        BNE read_file_length_loop
 
-        LDX #$ff                ; Check if disksize in table
-print_loop:
+        ; Check if disksize in table (which is in sectors so we ignore the LSB of length)
+        LDX #$ff
+compare_size_loop:
         INX
         LDA table_disksize_lb,x
         CMP #$ff
         BEQ not_found_error
         CMP NAME+1
-        BNE print_loop
+        BNE compare_size_loop
 
         LDA table_disksize_hb,x ; lb found, check hb
         CMP NAME+2
-        BNE print_loop
+        BNE compare_size_loop
 
 disk_found:
         RTS                     ; Disksize in table, return index in X
@@ -621,158 +633,3 @@ act_disk_sect:
 
 act_disk_int:
         .byte  0,  0,  0,  0
-
-;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
-;
-; Read data to memory from the pic's buffer
-;
-; data may be from another source other than file, ie getfileinfo
-; x = number of bytes to read (0 = 256)
-; (RWPTR) points to store
-;
-read_data_buffer:
-        JSR prepare_read_data
-
-        LDY #0
-
-@loop:
-        JSR read_data_reg
-        STA (RWPTR),y
-        INY
-        DEX
-        BNE @loop
-
-return_ok:
-        RTS
-
-;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
-;
-; set RWPTR to point to NAME  (i.e. $140)
-;
-; this is called 5 times, so making it a subroutine rather than a macro
-; saves 4 * (8 - 3) - 9 = 11 bytes!
-set_rwptr_to_name:
-        LDA #<NAME
-        STA RWPTR
-        LDA #>NAME
-        STA RWPTR+1
-        RTS
-
-;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
-;
-; Read filename, then fall through to open_file_read
-
-open_filename_read:
-        JSR read_filename       ; copy filename from $100 to $140
-        ; fall through to open_file_read
-
-;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
-;
-; Open file for read or write
-;
-; $140 = name
-; a = read/write $01 = read, $11 = write
-;
-
-open_file_read:
-        LDA #CMD_FILE_OPEN_READ
-        JSR open_file
-        JMP expect64orless
-
-open_file_write:
-        LDA #CMD_FILE_OPEN_WRITE
-
-; Falls through to
-open_file:
-        PHA
-        JSR send_name
-        PLA
-        JMP slow_cmd
-
-send_name:
-        JSR prepare_write_data
-
-send_additional_name:
-        LDX #0
-        BEQ @pumpname
-
-@nextchar:
-        JSR write_data_reg
-        INX
-
-@pumpname:
-        LDA NAME,x              ; write filename to filename buffer
-        CMP #$0d
-        BNE @nextchar
-
-        LDA #0                  ; terminate the string
-        JMP write_data_reg
-
-expect64orless:
-        CMP #STATUS_COMPLETE+1
-        BCC return_ok
-        ; fall through to report_disk_failure
-
-
-;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~;~~
-;
-; report a file system error
-;
-report_disk_failure:
-        AND #ERROR_MASK
-        PHA                     ; save error code
-        TAX                     ; error code into x
-        LDY #$ff                ; string indexer
-
-@findstring:
-        INY                     ; do this here because we need the z flag below
-        LDA diskerrortab,y
-        BNE @findstring         ; zip along the string till we find a zero
-
-        DEX                     ; when this bottoms we've found our error
-        BNE @findstring
-        PLA                     ; restore error code
-        TAX                     ; error code in X
-        LDA TUBE_FLAG
-        CMP #TUBE_ENABLED
-        BEQ @tubeError
-
-@printstring:
-        INY
-        LDA diskerrortab,y
-        JSR OSWRCH
-        BNE @printstring
-        BRK
-
-@tubeError:
-        INY                     ; store index for basic BRK-alike hander
-        TYA
-        CLC
-        ADC #<diskerrortab
-        STA $d5
-        LDA #>diskerrortab
-        ADC #0
-        STA $d6
-        JMP L0409               ; error code in X (must be non zero)
-
-diskerrortab:
-        .byte $00
-        .byte "DISK FAULT",$00
-        .byte "INTERNAL ERROR",$00
-        .byte "NOT READY",$00
-        .byte "NOT FOUND",$00
-        .byte "NO PATH",$00
-        .byte "INVALID NAME",$00
-        .byte "ACCESS DENIED",$00
-        .byte "EXISTS",$00
-        .byte "INVALID OBJECT",$00
-        .byte "WRITE PROTECTED",$00
-        .byte "INVALID DRIVE",$00
-        .byte "NOT ENABLED",$00
-        .byte "NO FILESYSTEM",$00
-        .byte $00               ; mkfs error
-        .byte "TIMEOUT",$00
-        .byte "EEPROM ERROR",$00
-        .byte "FAILED",$00
-        .byte "TOO MANY",$00
-        .byte "SILLY",$0d
