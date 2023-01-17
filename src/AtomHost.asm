@@ -1475,24 +1475,150 @@ ConvertCursor:
 ;;; ------------------------
 AtomWRCH:
         BIT GodilFlag           ; Check if running in 80x40 mode
-        BMI AtomWRCH1
+        BPL AtomWRCHAtom
+        JMP OSWRCH              ; yes, let it handle everything
+
+AtomWRCHAtom:
+        STX Tmp                 ; Save X so we can use it as a working register
+
+        LDX wrch_index          ; Load the buffer index
+        STA wrch_buffer, X      ; Store the character at the next slot in the buffer
+        INC wrch_index          ; Increment the buffer index
+
+        LDX wrch_buffer         ; Check whether the VDU sequence we have accumulated is complete
+        CPX #$20                ; Anything >= $20 is of length one, so will be complete
+        BCS AtomWRCHNormal
+
+        PHA
+        LDA wrch_index          ; if index >= length value read from table then sequence is complete
+        CMP wrch_table, X
+        PLA
+        BCS AtomWRCHControl
+
+        LDX Tmp
+        RTS
+
+AtomWRCHControl:                ; process a complete control sequence
+        LDA wrch_buffer
+
+        CMP #$11
+        BEQ AtomWRCH_11
+
+        CMP #$1A
+        BEQ AtomWRCH_1A
+
+        CMP #$1C
+        BEQ AtomWRCH_1C
+
+        CMP #$1F
+        BEQ AtomWRCH_1F
+
+        LDX #0                  ; Not a special sequence, so flush buffer
+AtomWRCHFlush:
+        LDA wrch_buffer, X
+        JSR OSWRCH
+        INX
+        CPX wrch_index
+        BCC AtomWRCHFlush
+
+AtomWRCH_11:                     ; ignore VDU 17 (text colour)
+AtomWRCH_1A:                     ; ignore VDU 26 (reset text windows)
+AtomWRCH_1C:                     ; ignore VDU 28 (set text windows)
+
+AtomWRCHReturn:
+        LDX #0
+        STX wrch_index
+        LDX Tmp
+        RTS
+
+AtomWRCH_1F:
+        TYA
+        PHA
+        LDY $E0
+        JSR $FD44               ; invert character at cursor
+        LDA wrch_buffer + 2     ; DE/DF = $8000 + (Y AND $0F) * $20
+        AND #$0F
+        ASL A
+        ASL A
+        ASL A
+        ASL A
+        ASL A
+        STA $DE
+        LDA #$80
+        ADC #0
+        STA $DF
+        LDA wrch_buffer + 1     ; E0 = X
+        AND #$1F
+        TAY
+        STY $e0
+        JSR $FD44               ; invert character at cursor
+        PLA
+        TAY
+        JMP AtomWRCHReturn
+
+AtomWRCHNormal:
         CMP #$7F                ; Handle delete
-        BEQ AtomWRCH1
+        BEQ AtomWRCHDel
         CMP #$60                ; Mask lower case
-        BCC AtomWRCH1
+        BCC AtomWRCHUpper
         AND #$DF
-AtomWRCH1:
-        JMP OSWRCH
-AtomWRCH2:
+
+AtomWRCHUpper:
+        JSR OSWRCH
+        JMP AtomWRCHReturn
+
+AtomWRCHDel:
         PHA
         LDA #8
-        JSR AtomWRCH
+        JSR OSWRCH
         LDA #32
-        JSR AtomWRCH
+        JSR OSWRCH
         LDA #8
-        JSR AtomWRCH
+        JSR OSWRCH
         PLA
-        RTS
+        JMP AtomWRCHReturn
+
+wrch_buffer:
+        .byte 0,0,0,0,0,0,0,0
+        .byte 0,0,0,0,0,0,0,0
+
+wrch_index:
+        .byte 0
+
+wrch_table:
+        .byte 1                 ; $00
+        .byte 2                 ; $01
+        .byte 1                 ; $02
+        .byte 1                 ; $03
+        .byte 1                 ; $04
+        .byte 1                 ; $05
+        .byte 1                 ; $06
+        .byte 1                 ; $07
+        .byte 1                 ; $08
+        .byte 1                 ; $09
+        .byte 1                 ; $0A
+        .byte 1                 ; $0B
+        .byte 1                 ; $0C
+        .byte 1                 ; $0D
+        .byte 1                 ; $0E
+        .byte 1                 ; $0F
+        .byte 1                 ; $10
+        .byte 2                 ; $11
+        .byte 3                 ; $12
+        .byte 6                 ; $13
+        .byte 1                 ; $14
+        .byte 1                 ; $15
+        .byte 2                 ; $16
+        .byte 10                ; $17
+        .byte 9                 ; $18
+        .byte 6                 ; $19
+        .byte 1                 ; $1A
+        .byte 1                 ; $1B
+        .byte 5                 ; $1C
+        .byte 5                 ; $1D
+        .byte 1                 ; $1E
+        .byte 3                 ; $1F
+
 TimerLo:
         .byte <9999, <19999, <39999
 
