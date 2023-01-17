@@ -101,6 +101,7 @@
         KeyBuf     = $7B        ; one character keyboard buffer
         KeyFlag    = $7C        ; non-zero indicates key still held down
 .endif
+        Tmp        = $7D
         AtomCmd    = $c9        ; used by osfile; this could be anywhere
         AtomStr    = $140       ; used by osfile; atommc assumes 140
 
@@ -628,11 +629,14 @@ RdLineEsc:
         JMP TubeSendIdle        ; Return $FF for Escape, return to Tube idle loop
 
 
+
 bytelo:
         JSR TubeWaitR2
         TAX
         JSR TubeWaitR2
 
+        CMP #$76
+        BEQ osbyte7e
         CMP #$7E
         BEQ osbyte7e
 
@@ -657,28 +661,75 @@ bytelo:
         LDA #0
         JMP TubeSendIdle
 
+osbyte76:                       ; OSBYTE 76 = Reflect keyboard status in LEDs
+        LDA #$80
+        BIT $B001               ; test ctrl
+        BVC osbyte76_ctrl
+        ASL A                   ; ctrl not pressed, A=&00
+osbyte76_ctrl:
+        JMP TubeSendIdle        ; ff = escape condition cleared
+
 osbyte7e:                       ; OSBYTE 7e = Ack detection of escape condition
         JSR EscapeClear
         LDA #$ff
         JMP TubeSendIdle        ; ff = escape condition cleared
 
+
+byte_table:
+        .byte $80
+        .byte $81
+        .byte $86
+        .byte $87
+        .byte $98
+        .byte $A0
+        .byte $B1
+        .byte $D8
+        .byte $E5
+byte_table_end:
+
+byte_table_lo:
+        .byte <(osbyte80 - 1)
+        .byte <(osbyte81 - 1)
+        .byte <(osbyte86 - 1)
+        .byte <(osbyte87 - 1)
+        .byte <(osbyte98 - 1)
+        .byte <(osbyteA0 - 1)
+        .byte <(osbyteB1 - 1)
+        .byte <(osbyteD8 - 1)
+        .byte <(osbyteE5 - 1)
+
+byte_table_hi:
+        .byte >(osbyte80 - 1)
+        .byte >(osbyte81 - 1)
+        .byte >(osbyte86 - 1)
+        .byte >(osbyte87 - 1)
+        .byte >(osbyte98 - 1)
+        .byte >(osbyteA0 - 1)
+        .byte >(osbyteB1 - 1)
+        .byte >(osbyteD8 - 1)
+        .byte >(osbyteE5 - 1)
+
 bytehi:
         JSR TubeWaitR2          ; Fetch 3-byte control block X Y A
         TAX
         JSR TubeWaitR2
-        TAY
+        STA Tmp
         JSR TubeWaitR2
 
-        CMP #$98
-        BEQ osbyte98
-        CMP #$B1
-        BEQ osbyteB1
-        CMP #$D8
-        BEQ osbyteD8
-        CMP #$80
-        BEQ osbyte80
-        CMP #$E5
-        BEQ osbyteE5
+        LDY #byte_table_end - byte_table
+byte_loop:
+        DEY
+        BMI osbyte_unsupported
+        CMP byte_table, Y
+        BNE byte_loop
+
+        LDA byte_table_hi, Y
+        PHA
+        LDA byte_table_lo, Y
+        PHA
+        LDA byte_table, Y
+        LDY Tmp
+        RTS
 
 osbyte_unsupported:
 ;;; Log an unsupported OSBYTE
@@ -762,6 +813,85 @@ osbyteE5:                       ; Set escape action
         TAX                     ; return old value in X
         LDA #$00                ; Cy=0 (Undefined)
         BEQ osbyteret
+
+osbyte81:                       ; Read key (hack: only testing for shift currently implemented)
+        CPY #$FF
+        BNE osbytenotimpl
+        CPX #$FE
+        BEQ test_ctrl
+        CPX #$FF
+        BEQ test_shift
+        BNE osbytenotimpl
+not_pressed:
+        LDX #$00
+        LDY #$00
+        JMP osbyteret
+pressed:
+        LDX #$FF
+        LDY #$FF
+        JMP osbyteret
+
+test_shift:
+        BIT $B001
+        BPL pressed
+        BMI not_pressed
+
+test_ctrl:
+        BIT $B001
+        BVC pressed
+        BVS not_pressed
+
+osbyte86:                       ; Read Cursor X/Y Position
+        LDX $E0                 ; E0 holds the X coordinate of the cursor
+        LDA $DF                 ; DE/DF point to the start of the line
+        LSR A                   ; divide by 32
+        LDA $DE
+        ROR A
+        LSR A
+        LSR A
+        LSR A
+        LSR A
+        TAY                     ; Y is now the line number (0..15)
+        LDA #$86
+        JMP osbyteret
+
+osbyte87:                       ; Read Screen Mode
+        LDX #0
+        LDY #0
+        JMP osbyteret
+
+osbyteA0:                       ; Read VDU Variable
+        CPX #$08
+        BCC osbytenotimpl
+        CPX #$0C
+        BCS osbytenotimpl
+        BIT GodilFlag
+        BPL osbyteA0_1          ; branch if normal atom screen
+        INX
+        INX
+        INX
+        INX
+osbyteA0_1:
+        LDA osbyteA0table - 7, X
+        TAY
+        LDA osbyteA0table - 8, X
+        TAX
+        LDA #$A0
+        JMP osbyteret
+osbytenotimpl:
+        JMP osbyte_unsupported
+
+osbyteA0table:
+        ; 32x16 Atom Screen
+        .byte $00               ; 08 = left col
+        .byte $0F               ; 09 = bottom row
+        .byte $1F               ; 0A = right col
+        .byte $00               ; 0B = top row
+        ; 80x40 GODIL Screen
+        .byte $00               ; 08 = left col
+        .byte $27               ; 09 = bottom row
+        .byte $4F               ; 0A = right col
+        .byte $00               ; 0B = top row
 
 word:
         JSR TubeWaitR2          ; Get A
