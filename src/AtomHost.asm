@@ -102,6 +102,7 @@
         KeyFlag    = $7C        ; non-zero indicates key still held down
 .endif
         Tmp        = $7D
+        Args       = $7F
         AtomCmd    = $c9        ; used by osfile; this could be anywhere
         AtomStr    = $140       ; used by osfile; atommc assumes 140
 
@@ -151,10 +152,10 @@ TubeStartup:
         LDY #0                  ; *RUN copies the params to $100
         JSR RDBUFFER            ; read non-space character
         CMP #$0D                ; test for end-of-line
-        BEQ NoParam             ; jump if end-of-line (no parameter)
+        BEQ NoCore              ; jump if end-of-line (no parameter)
         JSR read_num            ; read the core number
-        CMP #16                 ; check highest core number
-        BMI SelectCore          ; continue on valid core number
+        CMP #$20                ; check highest core number
+        BCC SelectCore          ; continue on valid core number
         JSR STROUT              ; print error
         .byte "CORE?"
         NOP
@@ -162,7 +163,20 @@ TubeStartup:
 
 SelectCore:
         STA TubeS4              ; select the core
-NoParam:
+NoCore:
+        LDY #$FF                ; indicate there is no command
+        STY Args
+        LDY $03                 ; Y = command pointer
+        DEY
+SkipSpaces:                     ; Skip any spaces
+        INY
+        LDA ($05), Y
+        CMP #$20
+        BEQ SkipSpaces
+        CMP #$0D                ; Is there a command following the core number
+        BEQ NoCommand
+        STY Args                ; Yes, then save the start index of the command, to feed into AtomRDCH
+NoCommand:
         LDA #$00                ; non zero means transfer language
         STA LangFlag
         LDA #$00                ; B5 tracks escape key, B6 tracks escape state
@@ -1379,14 +1393,30 @@ TubeHostError:
 ;;; Interface to Atom OSRDCH
 ;;; ------------------------
 AtomRDCH:
+        BIT Args                 ; test if there is any of the command line left
+        BMI AtomRDCH1            ; bit 7 indicates we are done
+        STX Tmp                  ; save X
+        LDX Args                 ; args is an index into the command line at $100
+        LDA $100,X               ; read the next character
+        INC Args                 ; and increment the index
+        LDX Tmp                  ; restore X
+        CMP #$0D                 ; have we reached the end?
+        BNE AtomRDCH0            ; no, then return with A
+        SEC                      ; yes, then set bit 7 of Args
+        ROR Args
+AtomRDCH0:
+        CLC                      ; C=0 indicates no escape
+        RTS
+
+AtomRDCH1:
         LDA EscapeFlag
         AND #$DF
         STA EscapeFlag
 .if (buffered_kbd = 1)
-AtomRDCH1:
+AtomRDCH2:
         JSR PollKeyboard
         LDA KeyBuf              ; wait for the ISR to deposit a key press
-        BEQ AtomRDCH1
+        BEQ AtomRDCH2
         PHA
         LDA #$00                ; swallow the key press
         STA KeyBuf
