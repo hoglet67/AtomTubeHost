@@ -96,7 +96,7 @@
         R2Cmd      = $76        ; Computed address of R2 Command Handler
         LangFlag   = $78
         EscapeFlag = $79
-        GodilFlag  = $7A
+        VduFlag    = $7A
 .if (buffered_kbd = 1)
         KeyBuf     = $7B        ; one character keyboard buffer
         KeyFlag    = $7C        ; non-zero indicates key still held down
@@ -108,6 +108,14 @@
 
         TubeFlag   = $3CF       ; tube enabled flag, set by atom tube host
         TubeEna    = $5A        ; tube enable magic value
+
+;;
+;; VduFlag values
+;;
+VDU_ATOM  = $00
+VDU_2440  = $44
+VDU_GODIL = $88
+
 
 ;;; Optional 22-byte ATM Header
 ;;; --------------------------
@@ -188,18 +196,27 @@ NoCommand:
 .endif
         LDA #TubeEna            ; Enable tube transfers in AtoMMC
         STA TubeFlag
+
+        ;; VDU Type Detection
         LDA GodilVersion        ; Test GODIL version is 1x
         AND #$F0
         CMP #$10
         BNE NoGodil
         LDA GodilModeExtension  ; Test GODIL 80x40 mode
         BPL NoGodil
-        LDA #$80                ; Allow lower case characters to be output
-        BNE UpdateGodilFlag
+        LDA #VDU_GODIL          ; Allow lower case characters to be output
+        BNE StoreVDU
 NoGodil:
-        LDA #$00
-UpdateGodilFlag:
-        STA GodilFlag
+        LDA $B000
+        AND #$F0
+        CMP #$F0                ; test for CLEAR 4 to distinguish 32x16 and 40x24 modes
+        BNE NoVDU2440
+        LDA #VDU_2440
+        BNE StoreVDU
+NoVDU2440:
+        LDA #VDU_ATOM
+StoreVDU:
+        STA VduFlag
         LDA #12
         JSR AtomWRCH            ; Clear screen, ready for startup banner
         JSR ViaInit             ; Initialize 50Hz interrupts
@@ -855,6 +872,8 @@ test_ctrl:
         BVC pressed
         BVS not_pressed
 
+
+        ;; TODO - osbyte86 needs fixing for VDU_2440 and VDU_GODIL
 osbyte86:                       ; Read Cursor X/Y Position
         LDX $E0                 ; E0 holds the X coordinate of the cursor
         LDA $DF                 ; DE/DF point to the start of the line
@@ -879,13 +898,10 @@ osbyteA0:                       ; Read VDU Variable
         BCC osbytenotimpl
         CPX #$0C
         BCS osbytenotimpl
-        BIT GodilFlag
-        BPL osbyteA0_1          ; branch if normal atom screen
-        INX
-        INX
-        INX
-        INX
-osbyteA0_1:
+        TXA
+        ADC VduFlag
+        AND #$1F
+        TAX
         LDA osbyteA0table - 7, X
         TAY
         LDA osbyteA0table - 8, X
@@ -900,6 +916,11 @@ osbyteA0table:
         .byte $00               ; 08 = left col
         .byte $0F               ; 09 = bottom row
         .byte $1F               ; 0A = right col
+        .byte $00               ; 0B = top row
+        ; 40x24 VDU2440
+        .byte $00               ; 08 = left col
+        .byte $17               ; 09 = bottom row
+        .byte $27               ; 0A = right col
         .byte $00               ; 0B = top row
         ; 80x40 GODIL Screen
         .byte $00               ; 08 = left col
@@ -1504,7 +1525,7 @@ ConvertCursor:
 ;;; Interface to Atom OSWRCH
 ;;; ------------------------
 AtomWRCH:
-        BIT GodilFlag           ; Check if running in 80x40 mode
+        BIT VduFlag             ; Check if running in 80x40 mode
         BPL AtomWRCHAtom
         JMP OSWRCH              ; yes, let it handle everything
 
@@ -1534,6 +1555,12 @@ AtomWRCHControl:                ; process a complete control sequence
         CMP #$11
         BEQ AtomWRCH_11
 
+        CMP #$13
+        BEQ AtomWRCH_13
+
+        CMP #$14
+        BEQ AtomWRCH_14
+
         CMP #$1A
         BEQ AtomWRCH_1A
 
@@ -1552,6 +1579,8 @@ AtomWRCHFlush:
         BCC AtomWRCHFlush
 
 AtomWRCH_11:                     ; ignore VDU 17 (text colour)
+AtomWRCH_13:                     ; ignore VDU 19 (redefine colours)
+AtomWRCH_14:                     ; ignore VDU 20 (restore default colours)
 AtomWRCH_1A:                     ; ignore VDU 26 (reset text windows)
 AtomWRCH_1C:                     ; ignore VDU 28 (set text windows)
 
@@ -1564,6 +1593,93 @@ AtomWRCHReturn:
 AtomWRCH_1F:
         TYA
         PHA
+        LDA VduFlag
+        BEQ AtomWRCH_1F_Atom
+
+        ;; Screen has 24 rows, each row is $100 bytes
+        ;; TODO: Add bounds checking on X/Y
+AtomWRCH_1F_2440:
+        JSR InvertCursor2440
+        LDA #0                  ; DE/DF = $8000 + Y * $100
+        STA $DE
+        STA $E0
+        STA $E1
+        LDA wrch_buffer + 2
+        ORA #$80
+        STA $DF
+        JSR InvertCursor2440
+        LDA #9
+        LDY wrch_buffer + 1
+        BEQ AtomWRCH_1F_2440_2
+AtomWRCH_1F_2440_1:
+        JSR OSWRCH
+        DEY
+        BNE AtomWRCH_1F_2440_1
+AtomWRCH_1F_2440_2:
+        JMP AtomWRCH_1F_Return
+
+AtomWRCHNormal:
+        CMP #$7F                ; Handle delete
+        BEQ AtomWRCHDel
+        BIT VduFlag             ; Test for VDU_2440
+        BVS AtomWRCHUpper       ; Yes, don't mask lower case
+
+        CMP #$60                ; Mask lower case
+        BCC AtomWRCHUpper
+        AND #$DF
+
+AtomWRCHUpper:
+        JSR OSWRCH
+        JMP AtomWRCHReturn
+
+AtomWRCHDel:
+        PHA
+        LDA #8
+        JSR OSWRCH
+        LDA #32
+        JSR OSWRCH
+        LDA #8
+        JSR OSWRCH
+        PLA
+        JMP AtomWRCHReturn
+
+InvertCursor2440:
+        TXA
+        PHA
+        LDX $E1
+        LDY #$E0
+        LDA ($DE),Y
+        EOR InvertT1,X
+        STA ($DE),Y
+        INY
+        LDA ($DE),Y
+        EOR InvertT2,X
+        STA ($DE),Y
+        PLA
+        TAX
+        RTS
+
+        ;; The characters are 6 pixels wide, so byte alignment is complex!
+        ;;        Table T1 Table T2
+        ;;        76543210 76543210
+        ;; E1=00  11111100 00000000
+        ;; E1=01  00000011 11110000
+        ;; E1=02  00001111 11000000
+        ;; E1=03  00111111 00000000
+
+InvertT1:
+        .byte $FC
+        .byte $03
+        .byte $0F
+        .byte $3F
+InvertT2:
+        .byte $00
+        .byte $F0
+        .byte $C0
+        .byte $00
+
+        ;; Screen has 16 rows, each row is $20 bytes
+AtomWRCH_1F_Atom:
         LDY $E0
         JSR $FD44               ; invert character at cursor
         LDA wrch_buffer + 2     ; DE/DF = $8000 + (Y AND $0F) * $20
@@ -1582,30 +1698,9 @@ AtomWRCH_1F:
         TAY
         STY $e0
         JSR $FD44               ; invert character at cursor
+AtomWRCH_1F_Return:
         PLA
         TAY
-        JMP AtomWRCHReturn
-
-AtomWRCHNormal:
-        CMP #$7F                ; Handle delete
-        BEQ AtomWRCHDel
-        CMP #$60                ; Mask lower case
-        BCC AtomWRCHUpper
-        AND #$DF
-
-AtomWRCHUpper:
-        JSR OSWRCH
-        JMP AtomWRCHReturn
-
-AtomWRCHDel:
-        PHA
-        LDA #8
-        JSR OSWRCH
-        LDA #32
-        JSR OSWRCH
-        LDA #8
-        JSR OSWRCH
-        PLA
         JMP AtomWRCHReturn
 
 wrch_buffer:
