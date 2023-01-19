@@ -1597,25 +1597,56 @@ AtomWRCH_1F:
         BEQ AtomWRCH_1F_Atom
 
         ;; Screen has 24 rows, each row is $100 bytes
-        ;; TODO: Add bounds checking on X/Y
+        ;;
+        ;; DE/DF point to the byte containing the left pixel of the currect character
+        ;; E0 tracks the X position in characters (this was added by Kees for compatibility with Quill)
+        ;; E1 is alwats the X position in characters MOD 4
+        ;;
+        ;; DE is the one that's tricky to calculate: (X * 3) DIV 4
+        ;;
+        ;; i.e. 0, 0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8 ....
+        ;;
+        ;; 76543210 76543210 76543210
+        ;; ******
+        ;;       ** ****
+        ;;              **** **
+        ;;                     ******
+
 AtomWRCH_1F_2440:
+        TXA
+        PHA
         JSR InvertCursor2440
-        LDA #0                  ; DE/DF = $8000 + Y * $100
-        STA $DE
-        STA $E0
-        STA $E1
-        LDA wrch_buffer + 2
+
+        LDA wrch_buffer + 1         ; X
+x_test:
+        CMP #40
+        BCC x_ok
+        SBC #40                     ; inefficiently wrap by repeated subtraction
+        BCS x_test
+x_ok:
+        STA $E0                     ; E0 takes the X position
+        ASL A
+        ADC $E0
+        LSR A
+        LSR A
+        STA $DE                     ; DE = (X * 3) DIV 4
+
+        LDA $E0
+        AND #$03
+        STA $E1                     ; E1 takes the X position MOD 4
+
+        LDA wrch_buffer + 2         ; Y
+y_test:
+        CMP #24
+        BCC y_ok
+        SBC #24                     ; inefficiently wrap by repeated subtraction
+        BCS y_test
+y_ok:
         ORA #$80
         STA $DF
         JSR InvertCursor2440
-        LDA #9
-        LDY wrch_buffer + 1
-        BEQ AtomWRCH_1F_2440_2
-AtomWRCH_1F_2440_1:
-        JSR OSWRCH
-        DEY
-        BNE AtomWRCH_1F_2440_1
-AtomWRCH_1F_2440_2:
+        PLA
+        TAX
         JMP AtomWRCH_1F_Return
 
 AtomWRCHNormal:
@@ -1644,19 +1675,15 @@ AtomWRCHDel:
         JMP AtomWRCHReturn
 
 InvertCursor2440:
-        TXA
-        PHA
         LDX $E1
-        LDY #$E0
+        LDY #$E0                          ; Cursor is on row 7
         LDA ($DE),Y
-        EOR InvertT1,X
+        EOR vdu_2440_cursor_table1,X
         STA ($DE),Y
         INY
         LDA ($DE),Y
-        EOR InvertT2,X
+        EOR vdu_2440_cursor_table2,X
         STA ($DE),Y
-        PLA
-        TAX
         RTS
 
         ;; The characters are 6 pixels wide, so byte alignment is complex!
@@ -1667,12 +1694,13 @@ InvertCursor2440:
         ;; E1=02  00001111 11000000
         ;; E1=03  00111111 00000000
 
-InvertT1:
+vdu_2440_cursor_table1:
         .byte $FC
         .byte $03
         .byte $0F
         .byte $3F
-InvertT2:
+
+vdu_2440_cursor_table2:
         .byte $00
         .byte $F0
         .byte $C0
