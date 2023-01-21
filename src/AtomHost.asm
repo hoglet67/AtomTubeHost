@@ -29,6 +29,8 @@
 
         RDBUFFER = $F876        ; read character from input buffer but ignores spaces
 
+        RDHEX    = $F893        ; read hex number from iput buffer
+
         ;; These are already defined in atmmc2def.asm
         ;; OSRDCH   = $FFE3
         ;; OSECHO   = $FFE6
@@ -89,6 +91,7 @@
 ;;; Workspace in zero page
 ;;; ----------------------
 
+        HexIn      = $60
         TubeCtrl   = $60        ; Control block for MOS calls
         TubeSrc    = $72        ; Pointer to Tube transfer block
         TubeStatus = $74        ; Tube status
@@ -112,9 +115,12 @@
 ;;
 ;; VduFlag values
 ;;
-VDU_ATOM  = $00
-VDU_2440  = $44
-VDU_GODIL = $88
+;; Upper nibble allows easy testing
+;; Lower nibble is index into OSBYTE A0 table
+VDU_ATOM      = $00
+VDU_2440      = $44
+VDU_SCREENROM = $88
+VDU_GODIL     = $CC
 
 
 ;;; Optional 22-byte ATM Header
@@ -153,34 +159,127 @@ InitialStack:
 EscapeAction:
         .byte 0
 
-;;; Start up the Atom Tube system
-;;; ----------------------------
+;;; Option handling
+;;; ---------------
 
-TubeStartup:
-        LDY #0                  ; *RUN copies the params to $100
-        JSR RDBUFFER            ; read non-space character
-        CMP #$0D                ; test for end-of-line
-        BEQ NoCore              ; jump if end-of-line (no parameter)
-        JSR read_num            ; read the core number
-        CMP #$20                ; check highest core number
-        BCC SelectCore          ; continue on valid core number
+CoreOption:
+        LDX #HexIn
+        JSR RDHEX               ; read the core number
+        BEQ CoreError
+        LDA HexIn+1             ; check the core number
+        BNE CoreError
+        LDA HexIn
+        CMP #$20
+        BCS CoreError
+SelectCore:
+        STA TubeS4              ; select the core
+        RTS
+CoreError:
         JSR STROUT              ; print error
         .byte "CORE?"
         NOP
         BRK
 
-SelectCore:
-        STA TubeS4              ; select the core
-NoCore:
-        LDY #$FF                ; indicate there is no command
-        STY Args
-        LDY $03                 ; Y = command pointer
-        DEY
-SkipSpaces:                     ; Skip any spaces
+VDUOption:
+        LDX #HexIn
+        JSR RDHEX               ; read the core number
+        BEQ VDUError
+        LDA HexIn+1             ; check the core number
+        BNE VDUError
+        LDX HexIn
+        CPX #$04
+        BCS VDUError
+        LDA VDUTable,X
+        STA VduFlag
+        RTS
+VDUError:
+        JSR STROUT              ; print error
+        .byte "VDU?"
+        NOP
+        BRK
+
+;; VDU Type Detection
+;; ===================
+
+DefaultVDU:
+        LDA GodilVersion        ; Test GODIL version is 1x
+        AND #$F0
+        CMP #$10
+        BNE NoGodil
+        LDA GodilModeExtension  ; Test GODIL 80x40 mode
+        BPL NoGodil
+        LDA #VDU_GODIL          ; Allow lower case characters to be output
+        BNE StoreVDU
+NoGodil:
+        LDA $B000
+        AND #$F0
+        CMP #$F0                ; test for CLEAR 4 to distinguish 32x16 and 40x24 modes
+        BNE NoVDU2440
+        LDA #VDU_2440           ; this might be incorrect, it could also be SCREENROM
+        BNE StoreVDU
+NoVDU2440:
+        LDA #VDU_ATOM
+StoreVDU:
+        STA VduFlag
+        RTS
+
+VDUTable:
+        .byte VDU_ATOM
+        .byte VDU_2440
+        .byte VDU_SCREENROM
+        .byte VDU_GODIL
+
+HelpOption:
+        JSR STROUT
+        .byte "TUBE [ OPTIONS ] [ COMMAND ]", 10, 13
+        .byte "OPTIONS:", 10, 13
+        .byte "   -H = HELP", 10, 13
+        .byte "   -C = SWITCH TO CORE 00-1F", 10, 13
+        .byte "   -V = VDU TYPE 0-3", 10, 13
+        .byte "VDU TYPES:",10,13
+        .byte "    0 = ATOM", 10,13
+        .byte "    1 = VDU2440", 10,13
+        .byte "    2 = SCREEN ROM", 10,13
+        .byte "    3 = GODIL/VGA80", 10,13
+        NOP
+        RTS
+
+;;; Start up the Atom Tube system
+;;; ----------------------------
+
+TubeStartup:
+        JSR DefaultVDU          ; try to guess the VDI type
+
+        LDY #$FF                ; *RUN copies the params to $100
+
+NextOption:
         INY
-        LDA ($05), Y
-        CMP #$20
-        BEQ SkipSpaces
+        JSR RDBUFFER            ; read non-space character
+
+        CMP #'-'
+        BNE OptionsDone
+
+        INY                     ; skip the -
+        LDA $100, Y             ; read the option
+        INY                     ; skip the optiob
+
+NotHelpOption:
+        CMP #'C'
+        BNE NotCoreOption
+        JSR CoreOption
+        JMP NextOption
+NotCoreOption:
+        CMP #'V'
+        BNE BadOption
+        JSR VDUOption
+        JMP NextOption
+BadOption:
+        JMP HelpOption
+
+OptionsDone:
+        LDA #$FF                ; indicate there is no command
+        STA Args
+        JSR RDBUFFER            ; skip any spaces
         CMP #$0D                ; Is there a command following the core number
         BEQ NoCommand
         STY Args                ; Yes, then save the start index of the command, to feed into AtomRDCH
@@ -197,26 +296,6 @@ NoCommand:
         LDA #TubeEna            ; Enable tube transfers in AtoMMC
         STA TubeFlag
 
-        ;; VDU Type Detection
-        LDA GodilVersion        ; Test GODIL version is 1x
-        AND #$F0
-        CMP #$10
-        BNE NoGodil
-        LDA GodilModeExtension  ; Test GODIL 80x40 mode
-        BPL NoGodil
-        LDA #VDU_GODIL          ; Allow lower case characters to be output
-        BNE StoreVDU
-NoGodil:
-        LDA $B000
-        AND #$F0
-        CMP #$F0                ; test for CLEAR 4 to distinguish 32x16 and 40x24 modes
-        BNE NoVDU2440
-        LDA #VDU_2440
-        BNE StoreVDU
-NoVDU2440:
-        LDA #VDU_ATOM
-StoreVDU:
-        STA VduFlag
         LDA #12
         JSR AtomWRCH            ; Clear screen, ready for startup banner
         JSR ViaInit             ; Initialize 50Hz interrupts
@@ -922,6 +1001,11 @@ osbyteA0table:
         .byte $17               ; 09 = bottom row
         .byte $27               ; 0A = right col
         .byte $00               ; 0B = top row
+        ; 42x24 SCREEN ROM
+        .byte $00               ; 08 = left col
+        .byte $17               ; 09 = bottom row
+        .byte $29               ; 0A = right col
+        .byte $00               ; 0B = top row
         ; 80x40 GODIL Screen
         .byte $00               ; 08 = left col
         .byte $27               ; 09 = bottom row
@@ -1524,10 +1608,13 @@ ConvertCursor:
 
 ;;; Interface to Atom OSWRCH
 ;;; ------------------------
-AtomWRCH:
-        BIT VduFlag             ; Check if running in 80x40 mode
-        BPL AtomWRCHAtom
+
+AtomWRCHExternal:
         JMP OSWRCH              ; yes, let it handle everything
+
+AtomWRCH:
+        BIT VduFlag             ; Test the VDU typw
+        BMI AtomWRCHExternal    ; if VDU_GODIL or VDU_SCREENROM, pass to external driver
 
 AtomWRCHAtom:
         STX Tmp                 ; Save X so we can use it as a working register
@@ -1593,8 +1680,10 @@ AtomWRCHReturn:
 AtomWRCH_1F:
         TYA
         PHA
-        LDA VduFlag
-        BEQ AtomWRCH_1F_Atom
+        BIT VduFlag
+        BVC AtomWRCH_1F_Atom    ; distinguish Atom and VDU2440
+
+        ;; TODO: might be better to move this code to the VDU2440 driver
 
         ;; Screen has 24 rows, each row is $100 bytes
         ;;
